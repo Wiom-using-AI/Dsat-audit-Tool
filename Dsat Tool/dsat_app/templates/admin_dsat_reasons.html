@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Manage DSAT Reasons{% endblock %}
+{% block page_heading %}Manage DSAT Reasons{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Manage DSAT Reasons</div>
+    <div class="page-subtitle">Categories, reasons and explanations shown to auditors during auditing</div>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('addModal').classList.add('open')">+ Add Reason</button>
+</div>
+
+<div class="card" style="padding:0;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Category</th><th>DSAT Reason</th><th>Description / Explanation</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% set ns = namespace(cur='') %}
+        {% for r in reasons %}
+          {% if r.category != ns.cur %}
+            <tr><td colspan="5" class="reason-category">{{ r.category }}</td></tr>
+            {% set ns.cur = r.category %}
+          {% endif %}
+          <tr>
+            <td class="text-muted text-sm">{{ loop.index }}</td>
+            <td><span class="badge b-purple">{{ r.category }}</span></td>
+            <td><strong>{{ r.reason }}</strong></td>
+            <td style="max-width:380px;font-size:12px;color:#64748b;line-height:1.55;">{{ r.description or '—' }}</td>
+            <td>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-outline btn-sm"
+                  onclick="openEdit({{ r.id }}, `{{ r.category|replace('`','\\`') }}`, `{{ r.reason|replace('`','\\`') }}`, `{{ (r.description or '')|replace('`','\\`')|replace('\n',' ') }}`)">
+                  Edit
+                </button>
+                <form method="POST" action="{{ url_for('admin_delete_dsat_reason', rid=r.id) }}"
+                      onsubmit="return confirm('Delete this DSAT reason?')">
+                  <button class="btn btn-danger btn-sm">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-title">➕ Add DSAT Reason</div>
+    <form method="POST" action="{{ url_for('admin_add_dsat_reason') }}">
+      <div class="form-group">
+        <label>Category <span class="required">*</span></label>
+        <input type="text" name="category" class="form-control" required list="catList" placeholder="e.g. Agent Quality">
+        <datalist id="catList">
+          {% set seen = [] %}
+          {% for r in reasons %}{% if r.category not in seen %}
+          <option value="{{ r.category }}">{% set _ = seen.append(r.category) %}
+          {% endif %}{% endfor %}
+        </datalist>
+      </div>
+      <div class="form-group">
+        <label>DSAT Reason <span class="required">*</span></label>
+        <input type="text" name="reason" class="form-control" required placeholder="Short reason label">
+      </div>
+      <div class="form-group">
+        <label>Description / Explanation</label>
+        <textarea name="description" class="form-control" rows="4"
+          placeholder="Detailed explanation shown to auditors when this reason is selected..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('addModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Reason</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">✏️ Edit DSAT Reason</div>
+    <form method="POST" id="editForm">
+      <div class="form-group">
+        <label>Category <span class="required">*</span></label>
+        <input type="text" name="category" id="editCat" class="form-control" required list="catList2">
+        <datalist id="catList2">
+          {% set seen2 = [] %}
+          {% for r in reasons %}{% if r.category not in seen2 %}
+          <option value="{{ r.category }}">{% set _ = seen2.append(r.category) %}
+          {% endif %}{% endfor %}
+        </datalist>
+      </div>
+      <div class="form-group">
+        <label>DSAT Reason <span class="required">*</span></label>
+        <input type="text" name="reason" id="editReason" class="form-control" required>
+      </div>
+      <div class="form-group">
+        <label>Description / Explanation</label>
+        <textarea name="description" id="editDesc" class="form-control" rows="5"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('editModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openEdit(id, cat, reason, desc) {
+  document.getElementById('editForm').action = `/admin/dsat-reasons/${id}/edit`;
+  document.getElementById('editCat').value = cat;
+  document.getElementById('editReason').value = reason;
+  document.getElementById('editDesc').value = desc;
+  document.getElementById('editModal').classList.add('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target===o) o.classList.remove('open'); }));
+</script>
+{% endblock %}

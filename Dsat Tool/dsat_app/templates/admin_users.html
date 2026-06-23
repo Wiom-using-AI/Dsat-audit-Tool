@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Manage Users{% endblock %}
+{% block page_heading %}Manage Users{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Manage Users</div>
+    <div class="page-subtitle">Add auditors, reset passwords, activate or deactivate accounts</div>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('addModal').classList.add('open')">+ Add User</button>
+</div>
+
+<div class="card" style="padding:0;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="text-muted text-sm">{{ loop.index }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:13px;flex-shrink:0;">
+                {{ u.name[0] }}
+              </div>
+              <strong>{{ u.name }}</strong>
+            </div>
+          </td>
+          <td>{{ u.email }}</td>
+          <td>
+            <span class="badge {% if u.role == 'admin' %}b-admin{% else %}b-blue{% endif %}">{{ u.role }}</span>
+          </td>
+          <td>
+            <span class="badge {% if u.active %}b-green{% else %}b-gray{% endif %}">
+              {{ 'Active' if u.active else 'Inactive' }}
+            </span>
+          </td>
+          <td class="text-sm text-muted">{{ u.created_at[:10] if u.created_at else '—' }}</td>
+          <td>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              {% if u.role != 'admin' %}
+              <form method="POST" action="{{ url_for('admin_toggle_user', uid=u.id) }}">
+                <button class="btn btn-sm {% if u.active %}btn-outline{% else %}btn-success{% endif %}">
+                  {{ 'Deactivate' if u.active else 'Activate' }}
+                </button>
+              </form>
+              {% endif %}
+              <button class="btn btn-outline btn-sm" onclick="openReset({{ u.id }}, '{{ u.name|e }}')">
+                Reset PW
+              </button>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-title">➕ Add New User</div>
+    <form method="POST" action="{{ url_for('admin_add_user') }}">
+      <div class="form-group">
+        <label>Full Name <span class="required">*</span></label>
+        <input type="text" name="name" class="form-control" required placeholder="e.g. Priya Sharma">
+      </div>
+      <div class="form-group">
+        <label>Email Address <span class="required">*</span></label>
+        <input type="email" name="email" class="form-control" required placeholder="name@wiom.in">
+      </div>
+      <div class="form-group">
+        <label>Password <span class="required">*</span></label>
+        <input type="password" name="password" class="form-control" required placeholder="Minimum 6 characters">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select name="role" class="form-control">
+          <option value="auditor">Auditor</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('addModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add User</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal">
+    <div class="modal-title">🔑 Reset Password — <span id="resetName"></span></div>
+    <form method="POST" id="resetForm">
+      <div class="form-group">
+        <label>New Password <span class="required">*</span></label>
+        <input type="password" name="new_password" class="form-control" required placeholder="Enter new password">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('resetModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Reset Password</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openReset(uid, name) {
+  document.getElementById('resetName').textContent = name;
+  document.getElementById('resetForm').action = `/admin/users/${uid}/reset-password`;
+  document.getElementById('resetModal').classList.add('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target === o) o.classList.remove('open'); }));
+</script>
+{% endblock %}

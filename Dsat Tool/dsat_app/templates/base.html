@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}DSAT Audit Tool{% endblock %} — Wiom</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span class="brand-icon">📊</span>
+    <div>
+      <div class="brand-name">DSAT Tool</div>
+      <div class="brand-sub">Wiom Quality</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Main</div>
+    <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint=='dashboard' %}active{% endif %}">
+      <span class="nav-icon">🏠</span> Dashboard
+    </a>
+    <a href="{{ url_for('new_audit') }}" class="nav-item {% if request.endpoint=='new_audit' %}active{% endif %}">
+      <span class="nav-icon">➕</span> New Audit
+    </a>
+    <a href="{{ url_for('all_audits') }}" class="nav-item {% if request.endpoint=='all_audits' %}active{% endif %}">
+      <span class="nav-icon">📋</span> All Audits
+    </a>
+    <a href="{{ url_for('export_report') }}" class="nav-item">
+      <span class="nav-icon">⬇</span> Export CSV
+    </a>
+
+    {% if session.role == 'admin' %}
+    <div class="nav-section-label" style="margin-top:12px;">Admin</div>
+    <a href="{{ url_for('admin_users') }}" class="nav-item {% if request.endpoint=='admin_users' %}active{% endif %}">
+      <span class="nav-icon">👥</span> Manage Users
+    </a>
+    <a href="{{ url_for('admin_dispositions') }}" class="nav-item {% if request.endpoint=='admin_dispositions' %}active{% endif %}">
+      <span class="nav-icon">📂</span> Dispositions
+    </a>
+    <a href="{{ url_for('admin_dsat_reasons') }}" class="nav-item {% if request.endpoint=='admin_dsat_reasons' %}active{% endif %}">
+      <span class="nav-icon">🔖</span> DSAT Reasons
+    </a>
+    <a href="{{ url_for('admin_acpt') }}" class="nav-item {% if request.endpoint=='admin_acpt' %}active{% endif %}">
+      <span class="nav-icon">⭐</span> ACPT Options
+    </a>
+    <a href="{{ url_for('admin_partners') }}" class="nav-item {% if request.endpoint=='admin_partners' %}active{% endif %}">
+      <span class="nav-icon">🤝</span> Partners
+    </a>
+    <a href="{{ url_for('admin_campaigns') }}" class="nav-item {% if request.endpoint=='admin_campaigns' %}active{% endif %}">
+      <span class="nav-icon">📣</span> Campaigns
+    </a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <div class="user-avatar">{{ session.user_name[0] }}</div>
+      <div>
+        <div class="user-name">{{ session.user_name }}</div>
+        <div class="user-role {% if session.role=='admin' %}role-admin{% endif %}">{{ session.role }}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;">
+      <a href="{{ url_for('change_password') }}" class="sidebar-btn">🔑 Change PW</a>
+      <a href="{{ url_for('logout') }}" class="sidebar-btn sidebar-btn-danger">Logout</a>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN PAGE WRAPPER -->
+<div class="page-wrapper" id="pageWrapper">
+  <div class="top-bar">
+    <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+    <div class="top-bar-title">{% block page_heading %}{% endblock %}</div>
+  </div>
+  <main class="main-content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-container">
+      {% for cat, msg in messages %}
+      <div class="flash flash-{{ cat }}">{{ msg }}<button onclick="this.parentElement.remove()">✕</button></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<script>
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('pageWrapper').classList.toggle('sidebar-collapsed');
+}
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

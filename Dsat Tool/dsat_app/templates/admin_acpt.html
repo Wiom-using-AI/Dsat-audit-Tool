@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Manage ACPT Options{% endblock %}
+{% block page_heading %}Manage ACPT Options{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Manage ACPT Options</div>
+    <div class="page-subtitle">Dropdown options for Customer Satisfaction (ACPT) in the audit form</div>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('addModal').classList.add('open')">+ Add Option</button>
+</div>
+
+<div class="card" style="padding:0;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>ACPT Label</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for o in options %}
+        <tr>
+          <td class="text-muted text-sm">{{ loop.index }}</td>
+          <td><strong>{{ o.label }}</strong></td>
+          <td>
+            <form method="POST" action="{{ url_for('admin_delete_acpt', oid=o.id) }}"
+                  onsubmit="return confirm('Delete this ACPT option?')">
+              <button class="btn btn-danger btn-sm">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-title">➕ Add ACPT Option</div>
+    <form method="POST" action="{{ url_for('admin_add_acpt') }}">
+      <div class="form-group">
+        <label>Label <span class="required">*</span></label>
+        <input type="text" name="label" class="form-control" required placeholder="e.g. Technology">
+        <div class="form-hint">Appears as a dropdown option in the audit form under ACPT.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('addModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.modal-overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target===o) o.classList.remove('open'); }));
+</script>
+{% endblock %}

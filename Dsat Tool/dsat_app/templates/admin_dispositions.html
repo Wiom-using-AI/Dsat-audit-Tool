@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Manage Dispositions{% endblock %}
+{% block page_heading %}Manage Dispositions{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Manage Dispositions</div>
+    <div class="page-subtitle">Issue types and sub-dispositions used in the audit form</div>
+  </div>
+  <button class="btn btn-primary" onclick="document.getElementById('addModal').classList.add('open')">+ Add Disposition</button>
+</div>
+
+<div class="card" style="padding:0;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Issue Type</th><th>Sub Issue Type</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% set ns = namespace(cur='') %}
+        {% for d in dispositions %}
+          {% if d.issue_type != ns.cur %}
+            <tr><td colspan="4" class="reason-category">{{ d.issue_type }}</td></tr>
+            {% set ns.cur = d.issue_type %}
+          {% endif %}
+          <tr>
+            <td class="text-muted text-sm">{{ loop.index }}</td>
+            <td>{{ d.issue_type }}</td>
+            <td>{{ d.sub_issue_type }}</td>
+            <td>
+              <form method="POST" action="{{ url_for('admin_delete_disposition', did=d.id) }}"
+                    onsubmit="return confirm('Delete this disposition?')">
+                <button class="btn btn-danger btn-sm">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-title">➕ Add Disposition</div>
+    <form method="POST" action="{{ url_for('admin_add_disposition') }}">
+      <div class="form-group">
+        <label>Issue Type <span class="required">*</span></label>
+        <input type="text" name="issue_type" class="form-control" required
+               placeholder="e.g. Internet Issues" list="existingIssues">
+        <datalist id="existingIssues">
+          {% set seen = [] %}
+          {% for d in dispositions %}{% if d.issue_type not in seen %}
+          <option value="{{ d.issue_type }}">{% set _ = seen.append(d.issue_type) %}
+          {% endif %}{% endfor %}
+        </datalist>
+        <div class="form-hint">Type to reuse an existing type or create a new one.</div>
+      </div>
+      <div class="form-group">
+        <label>Sub Issue Type <span class="required">*</span></label>
+        <input type="text" name="sub_issue_type" class="form-control" required placeholder="e.g. Internet Supply Down">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('addModal').classList.remove('open')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.modal-overlay').forEach(o =>
+  o.addEventListener('click', e => { if (e.target===o) o.classList.remove('open'); }));
+</script>
+{% endblock %}

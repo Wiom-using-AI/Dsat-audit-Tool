@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSAT Audit Tool — Wiom</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#1a56db;--blue-dark:#1040b0;--blue-light:#ebf0ff;--sidebar-bg:#0f2057;--sidebar-hover:#1a3a80;--sidebar-active:#1a56db;--text:#1e293b;--muted:#64748b;--border:#e2e8f0;--bg:#f4f7fe;--sidebar-w:230px}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* LOGIN */
+.login-body{background:linear-gradient(135deg,#0f2057 0%,#1a56db 100%);min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-card{background:#fff;border-radius:16px;padding:44px 40px;width:420px;box-shadow:0 24px 64px rgba(0,0,0,.25)}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo .icon{font-size:48px;display:block;margin-bottom:10px}
+.login-logo h1{font-size:22px;font-weight:700;color:var(--text)}
+.login-logo p{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* SIDEBAR */
+.sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w);background:var(--sidebar-bg);display:flex;flex-direction:column;z-index:200;transition:width .2s;overflow:hidden}
+.sidebar.collapsed{width:60px}
+.sidebar.collapsed .brand-name,.sidebar.collapsed .brand-sub,.sidebar.collapsed .nav-lbl,.sidebar.collapsed .nav-item span:not(.ni),.sidebar.collapsed .uname,.sidebar.collapsed .urole,.sidebar.collapsed .sb-btn{display:none}
+.sidebar.collapsed .nav-item{justify-content:center;padding:10px 0}
+.sidebar.collapsed .uinfo{justify-content:center}
+.sb-brand{display:flex;align-items:center;gap:10px;padding:20px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.brand-icon{font-size:26px;flex-shrink:0}
+.brand-name{font-size:15px;font-weight:700;color:#fff;white-space:nowrap}
+.brand-sub{font-size:10.5px;color:rgba(255,255,255,.5);margin-top:1px}
+.sb-nav{flex:1;padding:12px 8px;overflow-y:auto}
+.nav-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:rgba(255,255,255,.35);padding:6px 8px 4px;white-space:nowrap}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:rgba(255,255,255,.72);text-decoration:none;font-size:13.5px;font-weight:500;margin-bottom:2px;cursor:pointer;transition:all .15s;white-space:nowrap;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--sidebar-hover);color:#fff}
+.nav-item.active{background:var(--sidebar-active);color:#fff;font-weight:600}
+.ni{font-size:15px;flex-shrink:0;width:20px;text-align:center}
+.sb-footer{padding:14px 12px;border-top:1px solid rgba(255,255,255,.1)}
+.uinfo{display:flex;align-items:center;gap:10px;margin-bottom:2px}
+.uavatar{width:34px;height:34px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0}
+.uname{font-size:13px;font-weight:600;color:#fff;white-space:nowrap}
+.urole{font-size:11px;color:rgba(255,255,255,.5)}
+.role-admin{color:#fbbf24}
+.sb-btn{flex:1;display:block;text-align:center;padding:6px 8px;border-radius:6px;font-size:11.5px;font-weight:500;cursor:pointer;background:rgba(255,255,255,.1);color:rgba(255,255,255,.8);border:none;margin-top:4px;transition:all .15s}
+.sb-btn:hover{background:rgba(255,255,255,.2);color:#fff}
+.sb-btn-danger:hover{background:#dc2626;color:#fff}
+
+/* PAGE WRAPPER */
+.page-wrapper{margin-left:var(--sidebar-w);min-height:100vh;display:flex;flex-direction:column;transition:margin-left .2s}
+.page-wrapper.collapsed{margin-left:60px}
+.top-bar{height:52px;background:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:14px;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.top-bar-title{font-size:15px;font-weight:600;color:var(--text)}
+.sb-toggle{background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);padding:4px 6px;border-radius:6px}
+.sb-toggle:hover{background:var(--blue-light);color:var(--blue)}
+.main-content{padding:24px 28px;flex:1}
+
+/* FORMS */
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px}
+.req{color:#dc2626;margin-left:2px}
+.form-control{width:100%;padding:9px 13px;border:1.5px solid var(--border);border-radius:8px;font-size:13.5px;font-family:'Inter',sans-serif;color:var(--text);background:#fff;transition:border-color .15s}
+.form-control:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(26,86,219,.12)}
+textarea.form-control{resize:vertical;min-height:90px}
+select.form-control{cursor:pointer}
+.form-hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+.full{grid-column:1/-1}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;font-size:13.5px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;border:none;text-decoration:none;transition:all .15s}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-dark)}
+.btn-danger{background:#dc2626;color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn-outline{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}
+.btn-outline:hover{background:var(--blue-light)}
+.btn-success{background:#059669;color:#fff}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-full{width:100%;justify-content:center}
+
+/* CARDS */
+.card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:22px;margin-bottom:20px}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #f3f4f6}
+.card-title{font-size:15px;font-weight:700;color:var(--text)}
+.card-sub{font-size:12px;color:var(--muted);margin-top:2px}
+
+/* PAGE HEADER */
+.page-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px}
+.page-title{font-size:21px;font-weight:700;color:var(--text)}
+.page-subtitle{font-size:13px;color:var(--muted);margin-top:3px}
+.header-actions{display:flex;gap:10px;align-items:center}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:22px}
+.stat-card{background:#fff;border-radius:12px;border:1px solid var(--border);padding:18px;display:flex;align-items:center;gap:14px}
+.stat-icon{width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.si-blue{background:#dbeafe}.si-green{background:#dcfce7}.si-orange{background:#ffedd5}.si-purple{background:#f3e8ff}
+.stat-value{font-size:26px;font-weight:700;color:var(--text)}
+.stat-label{font-size:11.5px;color:var(--muted);font-weight:500;margin-top:2px}
+
+/* CHARTS */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.dash-grid.three{grid-template-columns:1fr 1fr 1fr}
+.chart-box{background:#fff;border-radius:12px;border:1px solid var(--border);padding:20px}
+.chart-title{font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:16px}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:#f8fafc;color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:10px 13px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+tbody td{padding:11px 13px;border-bottom:1px solid #f3f4f6;vertical-align:top}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:#f8fbff}
+
+/* BADGES */
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.b-green{background:#dcfce7;color:#166534}.b-red{background:#fee2e2;color:#991b1b}
+.b-blue{background:#dbeafe;color:#1d4ed8}.b-purple{background:#f3e8ff;color:#7e22ce}
+.b-orange{background:#ffedd5;color:#9a3412}.b-gray{background:#f3f4f6;color:#374151}
+.b-admin{background:#fef3c7;color:#92400e}
+
+/* SECTION LABEL */
+.section-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);margin:0 0 16px;display:flex;align-items:center;gap:10px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--blue-light)}
+
+/* DSAT INFO */
+.dsat-info{margin-top:10px;padding:12px 16px;background:var(--blue-light);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;font-size:12.5px;color:var(--text);display:none;line-height:1.55}
+.dsat-info.show{display:block}
+.dsat-info-cat{font-size:10px;font-weight:700;text-transform:uppercase;color:var(--blue);letter-spacing:.05em;margin-bottom:4px}
+
+/* FLASH */
+.flash-container{margin-bottom:18px}
+.flash{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-radius:8px;margin-bottom:8px;font-size:13.5px;font-weight:500}
+.flash-success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+.flash-error{background:#fee2e2;color:#991b1b;border:1px solid #fca5a5}
+.flash button{background:none;border:none;cursor:pointer;color:inherit;font-size:15px;margin-left:12px}
+
+/* MODAL */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:28px;width:500px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.2)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:20px;color:var(--text)}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+
+/* FILTER BAR */
+.filter-bar{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+.filter-bar .form-group{margin-bottom:0;min-width:140px;flex:1}
+.filter-bar label{font-size:11.5px}
+
+/* MISC */
+.truncate{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.text-muted{color:var(--muted)}.text-sm{font-size:12px}
+.empty-state{text-align:center;padding:56px 20px;color:var(--muted)}
+.empty-icon{font-size:44px;margin-bottom:12px}
+.live-dot{display:inline-block;width:8px;height:8px;background:#22c55e;border-radius:50%;animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.reason-cat{font-size:10.5px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.05em;padding:10px 13px 4px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN ═══════════════ -->
+<div id="loginPage" class="login-body">
+  <div class="login-card">
+    <div class="login-logo">
+      <span class="icon">📊</span>
+      <h1>DSAT Audit Tool</h1>
+      <p>Wiom Quality Management</p>
+    </div>
+    <div id="loginFlash"></div>
+    <div class="form-group">
+      <label>Email Address</label>
+      <input type="email" id="loginEmail" class="form-control" placeholder="you@wiom.in" autofocus>
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="loginPw" class="form-control" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary btn-full" onclick="doLogin()" style="margin-top:8px;">Sign In →</button>
+    <p style="text-align:center;font-size:12px;color:#8a9bb0;margin-top:20px;">Default admin: admin@wiom.in / admin123</p>
+  </div>
+</div>
+
+<!-- ═══════════════ APP ═══════════════ -->
+<div id="appPage" class="hidden">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-brand">
+      <span class="brand-icon">📊</span>
+      <div>
+        <div class="brand-name">DSAT Tool</div>
+        <div class="brand-sub">Wiom Quality</div>
+      </div>
+    </div>
+    <nav class="sb-nav">
+      <div class="nav-lbl">Main</div>
+      <button class="nav-item" onclick="showPage('dashboard')"><span class="ni">🏠</span> Dashboard</button>
+      <button class="nav-item" onclick="showPage('auditForm')"><span class="ni">➕</span> New Audit</button>
+      <button class="nav-item" onclick="showPage('allAudits')"><span class="ni">📋</span> All Audits</button>
+      <button class="nav-item" onclick="exportCSV()"><span class="ni">⬇</span> Export CSV</button>
+      <div id="adminNav">
+        <div class="nav-lbl" style="margin-top:12px;">Admin</div>
+        <button class="nav-item" onclick="showPage('adminUsers')"><span class="ni">👥</span> Manage Users</button>
+        <button class="nav-item" onclick="showPage('adminDispositions')"><span class="ni">📂</span> Dispositions</button>
+        <button class="nav-item" onclick="showPage('adminDsatReasons')"><span class="ni">🔖</span> DSAT Reasons</button>
+        <button class="nav-item" onclick="showPage('adminAcpt')"><span class="ni">⭐</span> ACPT Options</button>
+        <button class="nav-item" onclick="showPage('adminPartners')"><span class="ni">🤝</span> Partners</button>
+        <button class="nav-item" onclick="showPage('adminCampaigns')"><span class="ni">📣</span> Campaigns</button>
+      </div>
+    </nav>
+    <div class="sb-footer">
+      <div class="uinfo">
+        <div class="uavatar" id="sbAvatar">A</div>
+        <div>
+          <div class="uname" id="sbName">Admin</div>
+          <div class="urole" id="sbRole">admin</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="sb-btn" onclick="showPage('changePw')">🔑 Change PW</button>
+        <button class="sb-btn sb-btn-danger" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="page-wrapper" id="pageWrapper">
+    <div class="top-bar">
+      <button class="sb-toggle" onclick="toggleSidebar()">☰</button>
+      <div class="top-bar-title" id="topBarTitle">Dashboard</div>
+    </div>
+    <main class="main-content">
+      <div id="flashContainer"></div>
+
+      <!-- DASHBOARD -->
+      <div id="pageDashboard" class="hidden">
+        <div class="page-header">
+          <div><div class="page-title">Quality Dashboard</div><div class="page-subtitle">DSAT Audit Overview — Wiom Quality Team</div></div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="showPage('auditForm')">+ New Audit</button>
+            <button class="btn btn-outline" onclick="exportCSV()">⬇ Export CSV</button>
+          </div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon si-blue">📋</div><div><div class="stat-value" id="statTotal">0</div><div class="stat-label">Total Audits</div></div></div>
+          <div class="stat-card"><div class="stat-icon si-green">✅</div><div><div class="stat-value" id="statMine">0</div><div class="stat-label">My Audits</div></div></div>
+          <div class="stat-card"><div class="stat-icon si-orange">⚠️</div><div><div class="stat-value" id="statReasons">0</div><div class="stat-label">DSAT Reason Types</div></div></div>
+          <div class="stat-card"><div class="stat-icon si-purple">👥</div><div><div class="stat-value" id="statAuditors">0</div><div class="stat-label">Active Auditors</div></div></div>
+        </div>
+        <div class="dash-grid">
+          <div class="chart-box"><div class="chart-title">Top DSAT Reasons</div><canvas id="chartReason"></canvas></div>
+          <div class="chart-box"><div class="chart-title">ACPT Breakdown</div><canvas id="chartAcpt"></canvas></div>
+        </div>
+        <div class="dash-grid three">
+          <div class="chart-box"><div class="chart-title">Issue Types</div><canvas id="chartIssue"></canvas></div>
+          <div class="chart-box"><div class="chart-title">Disposed Correctly</div><canvas id="chartDisposed"></canvas></div>
+          <div class="chart-box"><div class="chart-title">Audits by Auditor</div><canvas id="chartAuditor"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div><div class="card-title">Recent Audits</div><div class="card-sub">Last 10 submitted</div></div><button class="btn btn-outline btn-sm" onclick="showPage('allAudits')">View All</button></div>
+          <div class="table-wrap"><table><thead><tr><th>Advisor</th><th>Partner</th><th>Call Date</th><th>Issue Type</th><th>ACPT</th><th>DSAT Reason</th><th>Auditor</th></tr></thead><tbody id="recentBody"></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- NEW AUDIT FORM -->
+      <div id="pageAuditForm" class="hidden">
+        <div class="page-header">
+          <div><div class="page-title" id="auditFormTitle">New DSAT Audit</div><div class="page-subtitle">Fill in all details based on ACPT analysis</div></div>
+          <button class="btn btn-outline" onclick="showPage('allAudits')">← Back</button>
+        </div>
+        <form id="auditForm" onsubmit="submitAudit(event)">
+          <input type="hidden" id="editAuditId" value="">
+          <div class="card">
+            <div class="section-label">Call Details</div>
+            <div class="form-grid">
+              <div class="form-group"><label>Auditor Name</label><input type="text" id="fAuditorName" class="form-control" readonly></div>
+              <div class="form-group"><label>Advisor Name <span class="req">*</span></label><input type="text" id="fAdvisorName" class="form-control" required placeholder="Full name of advisor"></div>
+              <div class="form-group"><label>Partner</label><select id="fPartner" class="form-control"><option value="">— Select Partner —</option></select></div>
+              <div class="form-group"><label>Calling Number <span class="req">*</span></label><input type="text" id="fCallingNo" class="form-control" required placeholder="Customer mobile number"></div>
+              <div class="form-group"><label>Call ID</label><input type="text" id="fCallId" class="form-control" placeholder="Call recording ID"></div>
+              <div class="form-group"><label>Call Date <span class="req">*</span></label><input type="date" id="fCallDate" class="form-control" required></div>
+              <div class="form-group"><label>Audit Date <span class="req">*</span></label><input type="date" id="fAuditDate" class="form-control" required></div>
+              <div class="form-group"><label>Campaign</label><select id="fCampaign" class="form-control"><option value="">— Select Campaign —</option></select></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-label">Disposition</div>
+            <div class="form-grid">
+              <div class="form-group"><label>Issue Type <span class="req">*</span></label><select id="fIssueType" class="form-control" required onchange="loadSubIssues()"><option value="">— Select Issue Type —</option></select></div>
+              <div class="form-group"><label>Sub Issue Type <span class="req">*</span></label><select id="fSubIssue" class="form-control" required><option value="">— Select Sub Issue —</option></select></div>
+              <div class="form-group"><label>Disposed Correctly?</label><select id="fDisposed" class="form-control"><option value="">— Select —</option><option>Yes</option><option>No</option></select></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-label">Call Summary & Analysis</div>
+            <div class="form-group"><label>Call Summary</label><textarea id="fCallSummary" class="form-control" rows="4" placeholder="Summarise what happened during the call..."></textarea></div>
+            <div class="form-group"><label>Areas of Improvement</label><textarea id="fAreasImprovement" class="form-control" rows="3" placeholder="What could the agent have done better?"></textarea></div>
+          </div>
+          <div class="card">
+            <div class="section-label">ACPT Analysis</div>
+            <div class="form-grid">
+              <div class="form-group"><label>Customer Satisfaction — ACPT <span class="req">*</span></label><select id="fAcpt" class="form-control" required><option value="">— Select ACPT Category —</option></select><div class="form-hint">Primary reason for customer dissatisfaction.</div></div>
+              <div class="form-group"><label>Reason for ACPT</label><textarea id="fReasonAcpt" class="form-control" rows="3" placeholder="Explain why the customer was dissatisfied..."></textarea></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-label">D-Sat Reason</div>
+            <div class="form-group"><label>D-Sat Reason <span class="req">*</span></label><select id="fDsatReason" class="form-control" required onchange="showDsatInfo()"><option value="">— Select DSAT Reason —</option></select><div class="dsat-info" id="dsatInfo"><div class="dsat-info-cat" id="dsatCat"></div><div id="dsatDesc"></div></div></div>
+            <div class="form-group" style="margin-top:4px;"><label>Actionable Items / Improvement</label><textarea id="fActionable" class="form-control" rows="3" placeholder="Specific coaching points or action items..."></textarea></div>
+          </div>
+          <div style="display:flex;gap:12px;justify-content:flex-end;margin-bottom:32px;">
+            <button type="button" class="btn btn-outline" onclick="showPage('allAudits')">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="auditSubmitBtn">✅ Submit Audit</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ALL AUDITS -->
+      <div id="pageAllAudits" class="hidden">
+        <div class="page-header">
+          <div><div class="page-title">All Audits</div><div class="page-subtitle"><span class="live-dot"></span> <span id="auditCount">0</span> audit(s) — live</div></div>
+          <div class="header-actions"><button class="btn btn-primary" onclick="showPage('auditForm')">+ New Audit</button><button class="btn btn-outline" onclick="exportCSV()">⬇ Export CSV</button></div>
+        </div>
+        <div class="filter-bar">
+          <div class="form-group"><label>Search Advisor</label><input type="text" id="filterAdvisor" class="form-control" placeholder="Advisor name..." oninput="renderAuditsTable()"></div>
+          <div class="form-group"><label>Issue Type</label><select id="filterIssue" class="form-control" onchange="renderAuditsTable()"><option value="">All Issues</option></select></div>
+          <div class="form-group"><label>ACPT</label><select id="filterAcpt" class="form-control" onchange="renderAuditsTable()"><option value="">All ACPT</option></select></div>
+          <div class="form-group"><label>Auditor</label><select id="filterAuditor" class="form-control" onchange="renderAuditsTable()"><option value="">All Auditors</option></select></div>
+          <div class="form-group" style="min-width:auto;flex:none;"><label>&nbsp;</label><button class="btn btn-outline" onclick="clearFilters()">Clear</button></div>
+        </div>
+        <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Advisor</th><th>Partner</th><th>Calling No.</th><th>Campaign</th><th>Call Date</th><th>Audit Date</th><th>Issue Type</th><th>Sub Issue</th><th>Disposed?</th><th>ACPT</th><th>DSAT Reason</th><th>Auditor</th><th>Actions</th></tr></thead><tbody id="auditsBody"></tbody></table><div id="auditsEmpty" class="empty-state hidden"><div class="empty-icon">📋</div><p>No audits found.</p></div></div></div>
+      </div>
+
+      <!-- ADMIN: USERS -->
+      <div id="pageAdminUsers" class="hidden">
+        <div class="page-header"><div><div class="page-title">Manage Users</div><div class="page-subtitle">Add auditors, reset passwords, activate/deactivate accounts</div></div><button class="btn btn-primary" onclick="openModal('modalAddUser')">+ Add User</button></div>
+        <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody id="usersBody"></tbody></table></div></div>
+      </div>
+
+      <!-- ADMIN: DISPOSITIONS -->
+      <div id="pageAdminDispositions" class="hidden">
+        <div class="page-header"><div><div class="page-title">Manage Dispositions</div><div class="page-subtitle">Issue types and sub-dispositions</div></div><button class="btn btn-primary" onclick="openModal('modalAddDisposition')">+ Add</button></div>
+        <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Issue Type</th><th>Sub Issue Type</th><th>Action</th></tr></thead><tbody id="dispositionsBody"></tbody></table></div></div>
+      </div>
+
+      <!-- ADMIN: DSAT REASONS -->
+      <div id="pageAdminDsatReasons" class="hidden">
+        <div class="page-header"><div><div class="page-title">Manage DSAT Reasons</div><div class="page-subtitle">Categories, reasons and explanations</div></div><button class="btn btn-primary" onclick="openModal('modalAddDsatReason')">+ Add</button></div>
+        <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Category</th><th>DSAT Reason</th><th>Description</th><th>Actions</th></tr></thead><tbody id="dsatReasonsBody"></tbody></table></div></div>
+      </div>
+
+      <!-- ADMIN: ACPT -->
+      <div id="pageAdminAcpt" class="hidden">
+        <div class="page-header"><div><div class="page-title">Manage ACPT Options</div><div class="page-subtitle">Dropdown options for ACPT in the audit form</div></div><button class="btn btn-primary" onclick="openModal('modalAddAcpt')">+ Add</button></div>
+        <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>ACPT Label</th><th>Action</th></tr></thead><tbody id="acptBody"></tbody></table></div></div>
+      </div>
+
+      <!-- ADMIN: PARTNERS -->
+      <div id="pageAdminPartners" class="hidden">
+        <div class="page-header"><div><div class="page-title">Manage Partners</div><div class="page-subtitle">Partner dropdown options in the audit form</div></div><button class="btn btn-primary" onclick="openModal('modalAddPartner')">+ Add</button></div>
+        <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Partner Name</th><th>Action</th></tr></thead><tbody id="partnersBody"></tbody></table></div></div>
+      </div>
+
+      <!-- ADMIN: CAMPAIGNS -->
+      <div id="pageAdminCampaigns" class="hidden">
+        <div class="page-header"><div><div class="page-title">Manage Campaigns</div><div class="page-subtitle">Campaign dropdown options in the audit form</div></div><button class="btn btn-primary" onclick="openModal('modalAddCampaign')">+ Add</button></div>
+        <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Campaign Name</th><th>Action</th></tr></thead><tbody id="campaignsBody"></tbody></table></div></div>
+      </div>
+
+      <!-- CHANGE PASSWORD -->
+      <div id="pageChangePw" class="hidden">
+        <div style="max-width:460px;margin:0 auto;">
+          <div class="page-header"><div><div class="page-title">Change Password</div></div><button class="btn btn-outline" onclick="showPage('dashboard')">← Back</button></div>
+          <div class="card">
+            <div class="form-group"><label>Current Password <span class="req">*</span></label><input type="password" id="pwCurrent" class="form-control"></div>
+            <div class="form-group"><label>New Password <span class="req">*</span></label><input type="password" id="pwNew" class="form-control"></div>
+            <div class="form-group"><label>Confirm New Password <span class="req">*</span></label><input type="password" id="pwConfirm" class="form-control"></div>
+            <button class="btn btn-primary btn-full" onclick="changePassword()">Update Password</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══ MODALS ═══ -->
+<div class="modal-overlay" id="modalAddUser">
+  <div class="modal"><div class="modal-title">➕ Add New User</div>
+    <div class="form-group"><label>Full Name <span class="req">*</span></label><input type="text" id="nuName" class="form-control" placeholder="e.g. Priya Sharma"></div>
+    <div class="form-group"><label>Email <span class="req">*</span></label><input type="email" id="nuEmail" class="form-control" placeholder="name@wiom.in"></div>
+    <div class="form-group"><label>Password <span class="req">*</span></label><input type="password" id="nuPw" class="form-control" placeholder="Min 6 characters"></div>
+    <div class="form-group"><label>Role</label><select id="nuRole" class="form-control"><option value="auditor">Auditor</option><option value="admin">Admin</option></select></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modalAddUser')">Cancel</button><button class="btn btn-primary" onclick="addUser()">Add User</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalResetPw">
+  <div class="modal"><div class="modal-title">🔑 Reset Password — <span id="resetPwName"></span></div>
+    <input type="hidden" id="resetPwUserId">
+    <div class="form-group"><label>New Password <span class="req">*</span></label><input type="password" id="resetPwVal" class="form-control"></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modalResetPw')">Cancel</button><button class="btn btn-primary" onclick="doResetPw()">Reset</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAddDisposition">
+  <div class="modal"><div class="modal-title">➕ Add Disposition</div>
+    <div class="form-group"><label>Issue Type <span class="req">*</span></label><input type="text" id="ndIssue" class="form-control" list="existingIssues" placeholder="e.g. Internet Issues"><datalist id="existingIssues"></datalist></div>
+    <div class="form-group"><label>Sub Issue Type <span class="req">*</span></label><input type="text" id="ndSub" class="form-control" placeholder="e.g. Internet Supply Down"></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modalAddDisposition')">Cancel</button><button class="btn btn-primary" onclick="addDisposition()">Add</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAddDsatReason">
+  <div class="modal"><div class="modal-title">➕ Add DSAT Reason</div>
+    <div class="form-group"><label>Category <span class="req">*</span></label><input type="text" id="ndrCat" class="form-control" list="existingCats" placeholder="e.g. Agent Quality"><datalist id="existingCats"></datalist></div>
+    <div class="form-group"><label>Reason <span class="req">*</span></label><input type="text" id="ndrReason" class="form-control"></div>
+    <div class="form-group"><label>Description</label><textarea id="ndrDesc" class="form-control" rows="4" placeholder="Explanation shown to auditors..."></textarea></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modalAddDsatReason')">Cancel</button><button class="btn btn-primary" onclick="addDsatReason()">Add</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalEditDsatReason">
+  <div class="modal"><div class="modal-title">✏️ Edit DSAT Reason</div>
+    <input type="hidden" id="edrId">
+    <div class="form-group"><label>Category <span class="req">*</span></label><input type="text" id="edrCat" class="form-control" list="existingCats2"><datalist id="existingCats2"></datalist></div>
+    <div class="form-group"><label>Reason <span class="req">*</span></label><input type="text" id="edrReason" class="form-control"></div>
+    <div class="form-group"><label>Description</label><textarea id="edrDesc" class="form-control" rows="5"></textarea></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modalEditDsatReason')">Cancel</button><button class="btn btn-primary" onclick="saveEditDsatReason()">Save</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAddAcpt">
+  <div class="modal"><div class="modal-title">➕ Add ACPT Option</div>
+    <div class="form-group"><label>Label <span class="req">*</span></label><input type="text" id="naLabel" class="form-control" placeholder="e.g. Technology"></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modalAddAcpt')">Cancel</button><button class="btn btn-primary" onclick="addAcpt()">Add</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAddPartner">
+  <div class="modal"><div class="modal-title">➕ Add Partner</div>
+    <div class="form-group"><label>Partner Name <span class="req">*</span></label><input type="text" id="npLabel" class="form-control" placeholder="e.g. Cyfuture"></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modalAddPartner')">Cancel</button><button class="btn btn-primary" onclick="addPartner()">Add</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAddCampaign">
+  <div class="modal"><div class="modal-title">➕ Add Campaign</div>
+    <div class="form-group"><label>Campaign Name <span class="req">*</span></label><input type="text" id="ncLabel" class="form-control" placeholder="e.g. Sales Queue"></div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeModal('modalAddCampaign')">Cancel</button><button class="btn btn-primary" onclick="addCampaign()">Add</button></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATA STORE (localStorage)
+// ═══════════════════════════════════════════════════════════
+const COLORS = ['#1a56db','#7c3aed','#db2777','#0891b2','#059669','#d97706','#dc2626','#0d9488','#4f46e5','#65a30d','#ea580c','#2563eb'];
+
+function getData(key, def) {
+  try { return JSON.parse(localStorage.getItem('dsat_'+key)) || def; } catch { return def; }
+}
+function setData(key, val) { localStorage.setItem('dsat_'+key, JSON.stringify(val)); }
+
+function initDefaults() {
+  if (!getData('users', null)) {
+    setData('users', [{ id:1, name:'Admin', email:'admin@wiom.in', password:'admin123', role:'admin', active:true }]);
+  }
+  if (!getData('dispositions', null)) {
+    setData('dispositions', [
+      {id:1,issue:'Internet Issues',sub:'Internet Supply Down'},{id:2,issue:'Internet Issues',sub:'Recharge done but internet not working'},
+      {id:3,issue:'Internet Issues',sub:'Frequent Disconnection'},{id:4,issue:'Internet Issues',sub:'Slow Speed/Range Issues'},
+      {id:5,issue:'Internet Issues',sub:'Optical Power Out of Range'},{id:6,issue:'Cash Collection',sub:'No online payment method available'},
+      {id:7,issue:'Cash Collection',sub:'Trust issue'},{id:8,issue:'Cash Collection',sub:'Customer Requests (App)'},
+      {id:9,issue:'Shifting',sub:'Inquiry'},{id:10,issue:'Shifting',sub:'Within Premises'},
+      {id:11,issue:'Shifting',sub:'Outside Premises - Same Partner'},{id:12,issue:'Shifting',sub:'Outside Premises - Different Partner'},
+      {id:13,issue:'Shifting',sub:'Outside Premises - No Partner'},{id:14,issue:'Others',sub:'TV/Camera issue'},
+      {id:15,issue:'Others',sub:'Adapter issue'},{id:16,issue:'Others',sub:'Improper installation'},
+      {id:17,issue:'Others',sub:'Other'},{id:18,issue:'Others',sub:'Invoice requested'},
+      {id:19,issue:'Others',sub:'Router Issue and replacement'},{id:20,issue:'Partner Misbehavior',sub:'Trying to install non-Wiom connection'},
+      {id:21,issue:'Partner Misbehavior',sub:'Took extra cash'},{id:22,issue:'Partner Misbehavior',sub:'Rude behavior/threats'},
+      {id:23,issue:'Partner Misbehavior',sub:'Unauthorized router collection'},{id:24,issue:'Payment Issues',sub:'Demand coupons/compensation'},
+      {id:25,issue:'Payment Issues',sub:'Autopay issue'},{id:26,issue:'Payment Issues',sub:'Unable to Pay via App'},
+      {id:27,issue:'Payment Issues',sub:'Payment not reflecting'},{id:28,issue:'Payment Issues',sub:'Help in renewal'},
+      {id:29,issue:'Remove Connection - Talk to Customer',sub:'Wiom Service Issue'},{id:30,issue:'Remove Connection - Talk to Customer',sub:'Other reasons'},
+      {id:31,issue:'Refund',sub:'Service Issue'},{id:32,issue:'Refund',sub:'Double payment'},
+      {id:33,issue:'Refund',sub:'Service not available in new area (shifting)'},{id:34,issue:'Change Request',sub:'Change Name or Mobile Number'},
+      {id:35,issue:'Change Request',sub:'Change Plan'},{id:36,issue:'Change Request',sub:'Wifi Name/Password'},
+      {id:37,issue:'Router Pickup',sub:'Due to Service Issue'},{id:38,issue:'Router Pickup',sub:'Moving to a different city'},
+      {id:39,issue:'Router Pickup',sub:'Service not available in new area (shifting)'},{id:40,issue:'Router Pickup',sub:'Disconnect / Discontinue Service (system)'},
+      {id:41,issue:'Product Explanation',sub:'What is Wiom / Recharge-wala ghar ka net'},{id:42,issue:'Product Explanation',sub:'How it is different (recharge vs monthly)'},
+      {id:43,issue:'Serviceability / Area Check',sub:'Area serviceable check'},{id:44,issue:'Serviceability / Area Check',sub:'Non-serviceable area'},
+      {id:45,issue:'Recharge & Pricing',sub:'Recharge Options / Price'},{id:46,issue:'Recharge & Pricing',sub:'Recharge Duration'},
+      {id:47,issue:'Booking Process & Charges',sub:'How to book / process?'},{id:48,issue:'Booking Process & Charges',sub:'Booking fee (Rs.100) & Security deposit (Rs.300)'},
+      {id:49,issue:'Booking Process & Charges',sub:'Payment Options'},{id:50,issue:'Speed, Range & Devices',sub:'Speed'},
+      {id:51,issue:'Speed, Range & Devices',sub:'Range / Coverage'},{id:52,issue:'Speed, Range & Devices',sub:'Devices / usage'},
+      {id:53,issue:'Installation Timeline Enquiry',sub:'Setup timeline (pre-booking info)'},{id:54,issue:'App Issues',sub:'App not loading / blank (log page+issue)'},
+      {id:55,issue:'Booking Interest (Warm Lead)',sub:'Wants help to book / interested'},{id:56,issue:'Incomplete Calls',sub:'Voice Issue'},
+      {id:57,issue:'Incomplete Calls',sub:'Disconnected by CX'},{id:58,issue:'Other (Out of scope)',sub:'Misc not in above (iPhone, OTT, old plan)'}
+    ]);
+  }
+  if (!getData('dsatReasons', null)) {
+    setData('dsatReasons', [
+      {id:1,cat:'Agent Quality',reason:'Accurate resolution provided',desc:"Agent shared correct information — customer remained dissatisfied for other reasons."},
+      {id:2,cat:'Agent Quality',reason:'Incorrect information provided',desc:"Agent shared wrong details about Wiom's product, plan, process, or TAT."},
+      {id:3,cat:'Agent Quality',reason:'Incomplete information provided',desc:"Agent provided partial or missing details — customer was not fully informed."},
+      {id:4,cat:'Agent Quality',reason:'Query not fully addressed',desc:"One or more customer concerns were left unresolved or unacknowledged."},
+      {id:5,cat:'Agent Quality',reason:'Irrelevant response given',desc:"Agent's response did not address the customer's actual concern."},
+      {id:6,cat:'Agent Quality',reason:'Expectation mismatch',desc:"Agent followed correct SOP but customer was dissatisfied due to unmet personal expectations."},
+      {id:7,cat:'Agent Behaviour',reason:'Proactive assistance missing',desc:"Agent did not take initiative — failed to raise a ticket or service request when needed."},
+      {id:8,cat:'Agent Behaviour',reason:'Rude or unprofessional behaviour',desc:"Agent was impolite, dismissive, or used inappropriate language."},
+      {id:9,cat:'Agent Behaviour',reason:'Closure check not done',desc:"Agent ended the interaction without confirming if customer had further concerns."},
+      {id:10,cat:'Agent Behaviour',reason:'Language preference not followed',desc:"Communication carried out in a language other than the customer's stated preference."},
+      {id:11,cat:'Agent Behaviour',reason:'Unnecessary probing',desc:"Agent asked repetitive or irrelevant questions — causing friction."},
+      {id:12,cat:'Agent Behaviour',reason:'Poor attentiveness',desc:"Agent was inattentive — missed key customer inputs or repeated questions already answered."},
+      {id:13,cat:'Agent Behaviour',reason:'Poor call handling',desc:"Call managed poorly — unnecessary holds, abrupt disconnections, or failure to follow call etiquette."},
+      {id:14,cat:'Agent Behaviour',reason:'Unnecessary team transfer',desc:"Customer transferred to another team without valid reason, causing delays."},
+      {id:15,cat:'Process Gaps',reason:'Escalation not done',desc:"Case required escalation but agent failed to escalate despite customer request or SOP requirement."},
+      {id:16,cat:'Process Gaps',reason:'Incorrect ticket handling',desc:"Ticket raised incorrectly, under the wrong category, or not updated."},
+      {id:17,cat:'Process Gaps',reason:'ISD marked resolved without fix',desc:"ISD ticket closed by technician without actually resolving the issue."},
+      {id:18,cat:'Process Gaps',reason:'No loop closure for installation delay',desc:"Customer not kept informed about delayed installation — no follow-up or status update shared."},
+      {id:19,cat:'Service & Network Issues',reason:'Network supply down',desc:"Internet service unavailable due to network outage, maintenance, or infrastructure failure."},
+      {id:20,cat:'Service & Network Issues',reason:'Non-serviceable area',desc:"Customer's location is outside Wiom's current service coverage."},
+      {id:21,cat:'Service & Network Issues',reason:'Service access failure – active plan',desc:"Internet not working despite an active or recently recharged Wiom plan."},
+      {id:22,cat:'Service & Network Issues',reason:'Recharge done – service still down (RDNI)',desc:"Customer recharged but internet service was not restored."},
+      {id:23,cat:'Service & Network Issues',reason:'Service inactive – no recharge',desc:"Internet not working because the customer's plan has expired."},
+      {id:24,cat:'Service & Network Issues',reason:'Wiom app not working',desc:"Customer unable to access or use the Wiom app — login failures, crashes, or feature issues."},
+      {id:25,cat:'Service & Network Issues',reason:'Installation date breached',desc:"Committed installation date passed without completion or rescheduling communication."},
+      {id:26,cat:'Service & Network Issues',reason:'Service delay – resolution overdue',desc:"Ongoing service issue not resolved within committed TAT."},
+      {id:27,cat:'Service & Network Issues',reason:'Agent response delay',desc:"Customer experienced significant delay in receiving a response from the agent."},
+      {id:28,cat:'Billing & Payments',reason:'AutoPay issue',desc:"Auto-payment failed, incorrectly charged, or setup/cancellation not handled as requested."},
+      {id:29,cat:'Billing & Payments',reason:'Refund initiation delayed',desc:"Eligible refund not initiated within committed TAT — customer had to follow up."}
+    ]);
+  }
+  if (!getData('acptOptions', null)) setData('acptOptions', ['Agent','Customer','Process / Product','Technology','Service']);
+  if (!getData('partnerOptions', null)) setData('partnerOptions', ['Stefto','Cyfuture']);
+  if (!getData('campaignOptions', null)) setData('campaignOptions', ['Sales Queue','Service High Pain','Service Low Pain','Service Ticket','Status Queue']);
+  if (!getData('audits', null)) setData('audits', []);
+  if (!getData('nextId', null)) setData('nextId', {audit:1, user:2, disp:100, dr:100});
+}
+
+function nextId(type) {
+  const ids = getData('nextId', {audit:1,user:2,disp:100,dr:100});
+  const id = ids[type] || 1;
+  ids[type] = id + 1;
+  setData('nextId', ids);
+  return id;
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════
+let currentUser = null;
+
+function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  const users = getData('users', []);
+  const user = users.find(u => u.email === email && u.password === pw && u.active);
+  if (!user) { document.getElementById('loginFlash').innerHTML = '<div class="flash flash-error">Invalid credentials.<button onclick="this.parentElement.remove()">✕</button></div>'; return; }
+  currentUser = user;
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('appPage').classList.remove('hidden');
+  document.getElementById('sbAvatar').textContent = user.name[0];
+  document.getElementById('sbName').textContent = user.name;
+  document.getElementById('sbRole').textContent = user.role;
+  document.getElementById('sbRole').className = 'urole' + (user.role==='admin' ? ' role-admin' : '');
+  if (user.role !== 'admin') document.getElementById('adminNav').style.display = 'none';
+  else document.getElementById('adminNav').style.display = '';
+  showPage('dashboard');
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('appPage').classList.add('hidden');
+  document.getElementById('loginPage').classList.remove('hidden');
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPw').value = '';
+}
+
+function changePassword() {
+  const cur = document.getElementById('pwCurrent').value;
+  const nw = document.getElementById('pwNew').value;
+  const cf = document.getElementById('pwConfirm').value;
+  if (nw !== cf) { flash('error','Passwords do not match.'); return; }
+  if (cur !== currentUser.password) { flash('error','Current password is incorrect.'); return; }
+  const users = getData('users', []);
+  const idx = users.findIndex(u => u.id === currentUser.id);
+  users[idx].password = nw;
+  currentUser.password = nw;
+  setData('users', users);
+  flash('success','Password changed successfully.');
+  showPage('dashboard');
+}
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════
+const pageTitles = {dashboard:'Dashboard',auditForm:'New Audit',allAudits:'All Audits',adminUsers:'Manage Users',adminDispositions:'Manage Dispositions',adminDsatReasons:'DSAT Reasons',adminAcpt:'ACPT Options',adminPartners:'Partners',adminCampaigns:'Campaigns',changePw:'Change Password'};
+const pageIds = ['dashboard','auditForm','allAudits','adminUsers','adminDispositions','adminDsatReasons','adminAcpt','adminPartners','adminCampaigns','changePw'];
+
+function showPage(name) {
+  pageIds.forEach(p => document.getElementById('page'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('hidden'));
+  const el = document.getElementById('page'+name.charAt(0).toUpperCase()+name.slice(1));
+  if (el) el.classList.remove('hidden');
+  document.getElementById('topBarTitle').textContent = pageTitles[name] || '';
+  // update active nav
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  // render page content
+  if (name==='dashboard') renderDashboard();
+  if (name==='allAudits') renderAuditsTable();
+  if (name==='auditForm') initAuditForm();
+  if (name==='adminUsers') renderUsersTable();
+  if (name==='adminDispositions') renderDispositionsTable();
+  if (name==='adminDsatReasons') renderDsatReasonsTable();
+  if (name==='adminAcpt') renderAcptTable();
+  if (name==='adminPartners') renderPartnersTable();
+  if (name==='adminCampaigns') renderCampaignsTable();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  document.getElementById('pageWrapper').classList.toggle('collapsed');
+}
+
+// ═══════════════════════════════════════════════════════════
+// FLASH MESSAGES
+// ═══════════════════════════════════════════════════════════
+function flash(type, msg) {
+  const el = document.getElementById('flashContainer');
+  el.innerHTML = `<div class="flash flash-${type}">${msg}<button onclick="this.parentElement.remove()">✕</button></div>`;
+  setTimeout(()=>{ if(el.firstChild) el.firstChild.remove(); }, 4000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUDIT FORM
+// ═══════════════════════════════════════════════════════════
+let chartInstances = {};
+
+function initAuditForm(editAudit) {
+  document.getElementById('auditFormTitle').textContent = editAudit ? 'Edit Audit' : 'New DSAT Audit';
+  document.getElementById('auditSubmitBtn').textContent = editAudit ? '💾 Update Audit' : '✅ Submit Audit';
+  document.getElementById('editAuditId').value = editAudit ? editAudit.id : '';
+  document.getElementById('fAuditorName').value = currentUser ? currentUser.name : '';
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // Populate dropdowns
+  const partners = getData('partnerOptions', []);
+  const pSel = document.getElementById('fPartner');
+  pSel.innerHTML = '<option value="">— Select Partner —</option>' + partners.map(p=>`<option ${editAudit&&editAudit.partner===p?'selected':''}>${p}</option>`).join('');
+
+  const campaigns = getData('campaignOptions', []);
+  const cSel = document.getElementById('fCampaign');
+  cSel.innerHTML = '<option value="">— Select Campaign —</option>' + campaigns.map(c=>`<option ${editAudit&&editAudit.campaign===c?'selected':''}>${c}</option>`).join('');
+
+  const acpts = getData('acptOptions', []);
+  const aSel = document.getElementById('fAcpt');
+  aSel.innerHTML = '<option value="">— Select ACPT Category —</option>' + acpts.map(a=>`<option ${editAudit&&editAudit.acpt===a?'selected':''}>${a}</option>`).join('');
+
+  // Issue types
+  const disps = getData('dispositions', []);
+  const issues = [...new Set(disps.map(d=>d.issue))].sort();
+  const iSel = document.getElementById('fIssueType');
+  iSel.innerHTML = '<option value="">— Select Issue Type —</option>' + issues.map(i=>`<option ${editAudit&&editAudit.issueType===i?'selected':''}>${i}</option>`).join('');
+
+  // DSAT Reasons
+  const drs = getData('dsatReasons', []);
+  const cats = [...new Set(drs.map(d=>d.cat))];
+  const drSel = document.getElementById('fDsatReason');
+  drSel.innerHTML = '<option value="">— Select DSAT Reason —</option>' + cats.map(cat =>
+    `<optgroup label="${cat}">${drs.filter(d=>d.cat===cat).map(d=>`<option value="${d.reason}" data-desc="${d.desc||''}" data-cat="${d.cat}" ${editAudit&&editAudit.dsatReason===d.reason?'selected':''}>${d.reason}</option>`).join('')}</optgroup>`
+  ).join('');
+
+  if (editAudit) {
+    document.getElementById('fAdvisorName').value = editAudit.advisorName||'';
+    document.getElementById('fCallingNo').value = editAudit.callingNo||'';
+    document.getElementById('fCallId').value = editAudit.callId||'';
+    document.getElementById('fCallDate').value = editAudit.callDate||'';
+    document.getElementById('fAuditDate').value = editAudit.auditDate||today;
+    document.getElementById('fDisposed').value = editAudit.disposed||'';
+    document.getElementById('fCallSummary').value = editAudit.callSummary||'';
+    document.getElementById('fAreasImprovement').value = editAudit.areasImprovement||'';
+    document.getElementById('fReasonAcpt').value = editAudit.reasonAcpt||'';
+    document.getElementById('fActionable').value = editAudit.actionable||'';
+    if (editAudit.issueType) { loadSubIssues(editAudit.subIssue); }
+    showDsatInfo();
+  } else {
+    document.getElementById('auditForm').reset();
+    document.getElementById('fAuditorName').value = currentUser ? currentUser.name : '';
+    document.getElementById('fAuditDate').value = today;
+    document.getElementById('fSubIssue').innerHTML = '<option value="">— Select Sub Issue —</option>';
+    document.getElementById('dsatInfo').classList.remove('show');
+  }
+}
+
+function loadSubIssues(preselect) {
+  const issue = document.getElementById('fIssueType').value;
+  const sub = document.getElementById('fSubIssue');
+  if (!issue) { sub.innerHTML = '<option value="">— Select Sub Issue —</option>'; return; }
+  const disps = getData('dispositions', []);
+  const subs = disps.filter(d=>d.issue===issue).map(d=>d.sub);
+  sub.innerHTML = '<option value="">— Select Sub Issue —</option>' + subs.map(s=>`<option ${s===preselect?'selected':''}>${s}</option>`).join('');
+}
+
+function showDsatInfo() {
+  const sel = document.getElementById('fDsatReason');
+  const opt = sel.options[sel.selectedIndex];
+  const box = document.getElementById('dsatInfo');
+  if (opt && opt.value) {
+    document.getElementById('dsatCat').textContent = opt.getAttribute('data-cat')||'';
+    document.getElementById('dsatDesc').textContent = opt.getAttribute('data-desc')||'';
+    box.classList.add('show');
+  } else { box.classList.remove('show'); }
+}
+
+function submitAudit(e) {
+  e.preventDefault();
+  const id = document.getElementById('editAuditId').value;
+  const audits = getData('audits', []);
+  const audit = {
+    id: id ? parseInt(id) : nextId('audit'),
+    auditorName: currentUser.name,
+    auditorId: currentUser.id,
+    advisorName: document.getElementById('fAdvisorName').value,
+    partner: document.getElementById('fPartner').value,
+    callingNo: document.getElementById('fCallingNo').value,
+    callId: document.getElementById('fCallId').value,
+    callDate: document.getElementById('fCallDate').value,
+    auditDate: document.getElementById('fAuditDate').value,
+    campaign: document.getElementById('fCampaign').value,
+    issueType: document.getElementById('fIssueType').value,
+    subIssue: document.getElementById('fSubIssue').value,
+    disposed: document.getElementById('fDisposed').value,
+    callSummary: document.getElementById('fCallSummary').value,
+    areasImprovement: document.getElementById('fAreasImprovement').value,
+    acpt: document.getElementById('fAcpt').value,
+    reasonAcpt: document.getElementById('fReasonAcpt').value,
+    dsatReason: document.getElementById('fDsatReason').value,
+    actionable: document.getElementById('fActionable').value,
+    createdAt: id ? (audits.find(a=>a.id===parseInt(id))||{}).createdAt : new Date().toISOString()
+  };
+  if (id) {
+    const idx = audits.findIndex(a=>a.id===parseInt(id));
+    if (idx>=0) audits[idx] = audit;
+  } else {
+    audits.unshift(audit);
+  }
+  setData('audits', audits);
+  flash('success', id ? 'Audit updated.' : 'Audit submitted successfully!');
+  showPage('allAudits');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ALL AUDITS TABLE
+// ═══════════════════════════════════════════════════════════
+function getVisibleAudits() {
+  let audits = getData('audits', []);
+  if (currentUser && currentUser.role !== 'admin') audits = audits.filter(a=>a.auditorId===currentUser.id);
+  return audits;
+}
+
+function renderAuditsTable() {
+  let audits = getVisibleAudits();
+  const fa = document.getElementById('filterAdvisor').value.toLowerCase();
+  const fi = document.getElementById('filterIssue').value;
+  const fac = document.getElementById('filterAcpt').value;
+  const fau = document.getElementById('filterAuditor').value;
+  if (fa) audits = audits.filter(a=>(a.advisorName||'').toLowerCase().includes(fa));
+  if (fi) audits = audits.filter(a=>a.issueType===fi);
+  if (fac) audits = audits.filter(a=>a.acpt===fac);
+  if (fau) audits = audits.filter(a=>a.auditorName===fau);
+
+  document.getElementById('auditCount').textContent = audits.length;
+
+  // Populate filter dropdowns
+  const allAudits = getVisibleAudits();
+  const issues = [...new Set(allAudits.map(a=>a.issueType).filter(Boolean))].sort();
+  const fi_sel = document.getElementById('filterIssue');
+  const curFi = fi_sel.value;
+  fi_sel.innerHTML = '<option value="">All Issues</option>' + issues.map(i=>`<option ${i===curFi?'selected':''}>${i}</option>`).join('');
+
+  const acpts = [...new Set(allAudits.map(a=>a.acpt).filter(Boolean))].sort();
+  const fac_sel = document.getElementById('filterAcpt');
+  const curFac = fac_sel.value;
+  fac_sel.innerHTML = '<option value="">All ACPT</option>' + acpts.map(a=>`<option ${a===curFac?'selected':''}>${a}</option>`).join('');
+
+  const auditors = [...new Set(allAudits.map(a=>a.auditorName).filter(Boolean))].sort();
+  const fau_sel = document.getElementById('filterAuditor');
+  const curFau = fau_sel.value;
+  fau_sel.innerHTML = '<option value="">All Auditors</option>' + auditors.map(a=>`<option ${a===curFau?'selected':''}>${a}</option>`).join('');
+
+  const body = document.getElementById('auditsBody');
+  const empty = document.getElementById('auditsEmpty');
+  if (!audits.length) { body.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  body.innerHTML = audits.map((a,i)=>`
+    <tr>
+      <td class="text-muted text-sm">${i+1}</td>
+      <td><strong>${a.advisorName||'—'}</strong></td>
+      <td>${a.partner||'—'}</td>
+      <td>${a.callingNo||'—'}</td>
+      <td>${a.campaign||'—'}</td>
+      <td>${a.callDate||'—'}</td>
+      <td>${a.auditDate||'—'}</td>
+      <td>${a.issueType?`<span class="badge b-blue">${a.issueType}</span>`:'—'}</td>
+      <td class="truncate" title="${a.subIssue||''}">${a.subIssue||'—'}</td>
+      <td>${a.disposed==='Yes'?'<span class="badge b-green">Yes</span>':a.disposed==='No'?'<span class="badge b-red">No</span>':'—'}</td>
+      <td>${a.acpt?`<span class="badge b-purple">${a.acpt}</span>`:'—'}</td>
+      <td class="truncate" title="${a.dsatReason||''}">${a.dsatReason||'—'}</td>
+      <td>${a.auditorName||'—'}</td>
+      <td>
+        <div style="display:flex;gap:5px;">
+          <button class="btn btn-outline btn-sm" onclick="editAudit(${a.id})">Edit</button>
+          ${currentUser&&currentUser.role==='admin'?`<button class="btn btn-danger btn-sm" onclick="deleteAudit(${a.id})">Del</button>`:''}
+        </div>
+      </td>
+    </tr>
+    <tr style="background:#f8fbff;">
+      <td colspan="14" style="padding:0 13px 10px;">
+        ${(a.callSummary||a.areasImprovement||a.actionable||a.reasonAcpt)?`
+        <details style="font-size:12px;">
+          <summary style="cursor:pointer;color:#1a56db;font-weight:600;padding:5px 0;">▸ View Details</summary>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:10px;">
+            ${a.callSummary?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Call Summary</div><div style="color:#64748b;line-height:1.55;">${a.callSummary}</div></div>`:''}
+            ${a.areasImprovement?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Areas of Improvement</div><div style="color:#64748b;line-height:1.55;">${a.areasImprovement}</div></div>`:''}
+            ${a.reasonAcpt?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Reason for ACPT</div><div style="color:#64748b;line-height:1.55;">${a.reasonAcpt}</div></div>`:''}
+            ${a.actionable?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Actionable Items</div><div style="color:#64748b;line-height:1.55;">${a.actionable}</div></div>`:''}
+          </div>
+        </details>`:''}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function editAudit(id) {
+  const audit = getData('audits',[]).find(a=>a.id===id);
+  if (!audit) return;
+  showPage('auditForm');
+  setTimeout(()=>initAuditForm(audit), 50);
+}
+
+function deleteAudit(id) {
+  if (!confirm('Delete this audit?')) return;
+  const audits = getData('audits',[]).filter(a=>a.id!==id);
+  setData('audits', audits);
+  renderAuditsTable();
+  flash('success','Audit deleted.');
+}
+
+function clearFilters() {
+  document.getElementById('filterAdvisor').value='';
+  document.getElementById('filterIssue').value='';
+  document.getElementById('filterAcpt').value='';
+  document.getElementById('filterAuditor').value='';
+  renderAuditsTable();
+}
+
+// ═══════════════════════════════════════════════════════════
+// EXPORT CSV
+// ═══════════════════════════════════════════════════════════
+function exportCSV() {
+  const audits = getVisibleAudits();
+  const headers = ['Advisor Name','Partner','Calling Number','Auditor Name','Call Date','Audit Date','Call ID','Campaign','Issue Type','Sub Issue Type','Disposed Correctly','Call Summary','Areas of Improvement','ACPT','Reason for ACPT','D-Sat Reason','Actionable Items'];
+  const rows = audits.map(a=>[a.advisorName,a.partner,a.callingNo,a.auditorName,a.callDate,a.auditDate,a.callId,a.campaign,a.issueType,a.subIssue,a.disposed,a.callSummary,a.areasImprovement,a.acpt,a.reasonAcpt,a.dsatReason,a.actionable].map(v=>`"${(v||'').replace(/"/g,'""')}"`));
+  const csv = '﻿' + [headers, ...rows].map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download = `dsat_report_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════════════════
+// DASHBOARD CHARTS
+// ═══════════════════════════════════════════════════════════
+function renderDashboard() {
+  const audits = getData('audits',[]);
+  const myAudits = audits.filter(a=>currentUser&&a.auditorId===currentUser.id);
+
+  document.getElementById('statTotal').textContent = audits.length;
+  document.getElementById('statMine').textContent = myAudits.length;
+
+  const reasonTypes = [...new Set(audits.map(a=>a.dsatReason).filter(Boolean))];
+  document.getElementById('statReasons').textContent = reasonTypes.length;
+
+  const auditorNames = [...new Set(audits.map(a=>a.auditorName).filter(Boolean))];
+  document.getElementById('statAuditors').textContent = auditorNames.length;
+
+  // Recent
+  const body = document.getElementById('recentBody');
+  body.innerHTML = audits.slice(0,10).map(a=>`
+    <tr>
+      <td><strong>${a.advisorName||'—'}</strong></td>
+      <td>${a.partner||'—'}</td>
+      <td>${a.callDate||'—'}</td>
+      <td>${a.issueType?`<span class="badge b-blue">${a.issueType}</span>`:'—'}</td>
+      <td>${a.acpt?`<span class="badge b-purple">${a.acpt}</span>`:'—'}</td>
+      <td class="truncate" title="${a.dsatReason||''}">${a.dsatReason||'—'}</td>
+      <td>${a.auditorName||'—'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:#8a9bb0;">No audits yet.</td></tr>';
+
+  // Charts
+  const count = arr => arr.reduce((acc,v)=>{ acc[v]=(acc[v]||0)+1; return acc; },{});
+
+  const reasonCounts = count(audits.map(a=>a.dsatReason).filter(Boolean));
+  const topReasons = Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  const acptCounts = count(audits.map(a=>a.acpt).filter(Boolean));
+  const issueCounts = count(audits.map(a=>a.issueType).filter(Boolean));
+  const disposedCounts = count(audits.map(a=>a.disposed).filter(Boolean));
+  const auditorCounts = count(audits.map(a=>a.auditorName).filter(Boolean));
+
+  makeChart('chartReason','bar',topReasons.map(r=>r[0]),topReasons.map(r=>r[1]));
+  makeChart('chartAcpt','doughnut',Object.keys(acptCounts),Object.values(acptCounts));
+  makeChart('chartIssue','bar',Object.keys(issueCounts),Object.values(issueCounts));
+  makeChart('chartDisposed','doughnut',Object.keys(disposedCounts),Object.values(disposedCounts));
+  makeChart('chartAuditor','bar',Object.keys(auditorCounts),Object.values(auditorCounts));
+}
+
+function makeChart(id, type, labels, data) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+  const el = document.getElementById(id);
+  if (!el) return;
+  chartInstances[id] = new Chart(el, {
+    type,
+    data: { labels, datasets: [{ data, backgroundColor:COLORS, borderColor:type==='line'?'#1a56db':COLORS, borderWidth:1, tension:.4, fill:type==='line' }] },
+    options: {
+      responsive:true,
+      plugins:{ legend:{ display:type==='doughnut'||type==='pie', position:'right', labels:{font:{size:11},boxWidth:12} } },
+      scales: (type!=='doughnut'&&type!=='pie') ? { y:{beginAtZero:true,ticks:{stepSize:1,font:{size:11}},grid:{color:'#f3f4f6'}}, x:{ticks:{font:{size:10},maxRotation:30},grid:{display:false}} } : {}
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADMIN: USERS
+// ═══════════════════════════════════════════════════════════
+function renderUsersTable() {
+  const users = getData('users',[]);
+  document.getElementById('usersBody').innerHTML = users.map((u,i)=>`
+    <tr>
+      <td class="text-muted text-sm">${i+1}</td>
+      <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:32px;height:32px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;">${u.name[0]}</div><strong>${u.name}</strong></div></td>
+      <td>${u.email}</td>
+      <td><span class="badge ${u.role==='admin'?'b-admin':'b-blue'}">${u.role}</span></td>
+      <td><span class="badge ${u.active?'b-green':'b-gray'}">${u.active?'Active':'Inactive'}</span></td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${u.role!=='admin'?`<button class="btn btn-sm ${u.active?'btn-outline':'btn-success'}" onclick="toggleUser(${u.id})">${u.active?'Deactivate':'Activate'}</button>`:''}
+          <button class="btn btn-outline btn-sm" onclick="openResetPw(${u.id},'${u.name}')">Reset PW</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function addUser() {
+  const name=document.getElementById('nuName').value.trim();
+  const email=document.getElementById('nuEmail').value.trim();
+  const pw=document.getElementById('nuPw').value;
+  const role=document.getElementById('nuRole').value;
+  if (!name||!email||!pw) { flash('error','Please fill all fields.'); return; }
+  const users=getData('users',[]);
+  if (users.find(u=>u.email===email)) { flash('error','Email already exists.'); return; }
+  users.push({id:nextId('user'),name,email,password:pw,role,active:true});
+  setData('users',users);
+  closeModal('modalAddUser');
+  renderUsersTable();
+  flash('success',`User ${name} added.`);
+  document.getElementById('nuName').value=''; document.getElementById('nuEmail').value=''; document.getElementById('nuPw').value='';
+}
+
+function toggleUser(id) {
+  const users=getData('users',[]);
+  const idx=users.findIndex(u=>u.id===id);
+  if (idx>=0) { users[idx].active=!users[idx].active; setData('users',users); renderUsersTable(); }
+}
+
+function openResetPw(id, name) {
+  document.getElementById('resetPwUserId').value=id;
+  document.getElementById('resetPwName').textContent=name;
+  document.getElementById('resetPwVal').value='';
+  openModal('modalResetPw');
+}
+
+function doResetPw() {
+  const id=parseInt(document.getElementById('resetPwUserId').value);
+  const pw=document.getElementById('resetPwVal').value;
+  if (!pw) { flash('error','Enter a new password.'); return; }
+  const users=getData('users',[]);
+  const idx=users.findIndex(u=>u.id===id);
+  users[idx].password=pw;
+  setData('users',users);
+  closeModal('modalResetPw');
+  flash('success','Password reset successfully.');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADMIN: DISPOSITIONS
+// ═══════════════════════════════════════════════════════════
+function renderDispositionsTable() {
+  const disps=getData('dispositions',[]);
+  let lastIssue='';
+  document.getElementById('dispositionsBody').innerHTML = disps.map((d,i)=>{
+    let row='';
+    if (d.issue!==lastIssue) { row+=`<tr><td colspan="4" class="reason-cat">${d.issue}</td></tr>`; lastIssue=d.issue; }
+    row+=`<tr><td class="text-muted text-sm">${i+1}</td><td>${d.issue}</td><td>${d.sub}</td><td><button class="btn btn-danger btn-sm" onclick="deleteDisposition(${d.id})">Delete</button></td></tr>`;
+    return row;
+  }).join('');
+  // Populate datalist
+  const issues=[...new Set(disps.map(d=>d.issue))];
+  document.getElementById('existingIssues').innerHTML=issues.map(i=>`<option value="${i}">`).join('');
+}
+
+function addDisposition() {
+  const issue=document.getElementById('ndIssue').value.trim();
+  const sub=document.getElementById('ndSub').value.trim();
+  if (!issue||!sub) { flash('error','Fill both fields.'); return; }
+  const disps=getData('dispositions',[]);
+  disps.push({id:nextId('disp'),issue,sub});
+  setData('dispositions',disps);
+  closeModal('modalAddDisposition');
+  renderDispositionsTable();
+  flash('success','Disposition added.');
+  document.getElementById('ndIssue').value=''; document.getElementById('ndSub').value='';
+}
+
+function deleteDisposition(id) {
+  if (!confirm('Delete this disposition?')) return;
+  setData('dispositions',getData('dispositions',[]).filter(d=>d.id!==id));
+  renderDispositionsTable();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADMIN: DSAT REASONS
+// ═══════════════════════════════════════════════════════════
+function renderDsatReasonsTable() {
+  const drs=getData('dsatReasons',[]);
+  let lastCat='';
+  document.getElementById('dsatReasonsBody').innerHTML = drs.map((d,i)=>{
+    let row='';
+    if (d.cat!==lastCat) { row+=`<tr><td colspan="5" class="reason-cat">${d.cat}</td></tr>`; lastCat=d.cat; }
+    row+=`<tr><td class="text-muted text-sm">${i+1}</td><td><span class="badge b-purple">${d.cat}</span></td><td><strong>${d.reason}</strong></td><td style="max-width:300px;font-size:12px;color:#64748b;line-height:1.5;">${d.desc||'—'}</td><td><div style="display:flex;gap:6px;"><button class="btn btn-outline btn-sm" onclick='openEditDr(${JSON.stringify(d)})'>Edit</button><button class="btn btn-danger btn-sm" onclick="deleteDsatReason(${d.id})">Del</button></div></td></tr>`;
+    return row;
+  }).join('');
+  const cats=[...new Set(drs.map(d=>d.cat))];
+  document.getElementById('existingCats').innerHTML=cats.map(c=>`<option value="${c}">`).join('');
+  document.getElementById('existingCats2').innerHTML=cats.map(c=>`<option value="${c}">`).join('');
+}
+
+function addDsatReason() {
+  const cat=document.getElementById('ndrCat').value.trim();
+  const reason=document.getElementById('ndrReason').value.trim();
+  const desc=document.getElementById('ndrDesc').value.trim();
+  if (!cat||!reason) { flash('error','Category and reason required.'); return; }
+  const drs=getData('dsatReasons',[]);
+  drs.push({id:nextId('dr'),cat,reason,desc});
+  setData('dsatReasons',drs);
+  closeModal('modalAddDsatReason');
+  renderDsatReasonsTable();
+  flash('success','DSAT reason added.');
+  document.getElementById('ndrCat').value=''; document.getElementById('ndrReason').value=''; document.getElementById('ndrDesc').value='';
+}
+
+function openEditDr(d) {
+  document.getElementById('edrId').value=d.id;
+  document.getElementById('edrCat').value=d.cat;
+  document.getElementById('edrReason').value=d.reason;
+  document.getElementById('edrDesc').value=d.desc||'';
+  openModal('modalEditDsatReason');
+}
+
+function saveEditDsatReason() {
+  const id=parseInt(document.getElementById('edrId').value);
+  const drs=getData('dsatReasons',[]);
+  const idx=drs.findIndex(d=>d.id===id);
+  if (idx>=0) { drs[idx]={...drs[idx],cat:document.getElementById('edrCat').value,reason:document.getElementById('edrReason').value,desc:document.getElementById('edrDesc').value}; }
+  setData('dsatReasons',drs);
+  closeModal('modalEditDsatReason');
+  renderDsatReasonsTable();
+  flash('success','DSAT reason updated.');
+}
+
+function deleteDsatReason(id) {
+  if (!confirm('Delete this DSAT reason?')) return;
+  setData('dsatReasons',getData('dsatReasons',[]).filter(d=>d.id!==id));
+  renderDsatReasonsTable();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADMIN: ACPT / PARTNERS / CAMPAIGNS (generic)
+// ═══════════════════════════════════════════════════════════
+function renderList(key, bodyId, deleteFn) {
+  const items=getData(key,[]);
+  document.getElementById(bodyId).innerHTML=items.map((item,i)=>`
+    <tr><td class="text-muted text-sm">${i+1}</td><td><strong>${item}</strong></td><td><button class="btn btn-danger btn-sm" onclick="${deleteFn}('${item}')">Delete</button></td></tr>
+  `).join('') || '<tr><td colspan="3" style="text-align:center;padding:32px;color:#8a9bb0;">No items yet.</td></tr>';
+}
+
+function renderAcptTable() { renderList('acptOptions','acptBody','deleteAcpt'); }
+function renderPartnersTable() { renderList('partnerOptions','partnersBody','deletePartner'); }
+function renderCampaignsTable() { renderList('campaignOptions','campaignsBody','deleteCampaign'); }
+
+function addAcpt() { addToList('acptOptions','naLabel','acptBody',renderAcptTable,'modalAddAcpt'); }
+function addPartner() { addToList('partnerOptions','npLabel','partnersBody',renderPartnersTable,'modalAddPartner'); }
+function addCampaign() { addToList('campaignOptions','ncLabel','campaignsBody',renderCampaignsTable,'modalAddCampaign'); }
+
+function addToList(key, inputId, bodyId, renderFn, modalId) {
+  const val=document.getElementById(inputId).value.trim();
+  if (!val) { flash('error','Please enter a value.'); return; }
+  const items=getData(key,[]);
+  if (items.includes(val)) { flash('error','Already exists.'); return; }
+  items.push(val);
+  setData(key,items);
+  closeModal(modalId);
+  renderFn();
+  flash('success','Item added.');
+  document.getElementById(inputId).value='';
+}
+
+function deleteAcpt(val) { deleteFromList('acptOptions',val,renderAcptTable); }
+function deletePartner(val) { deleteFromList('partnerOptions',val,renderPartnersTable); }
+function deleteCampaign(val) { deleteFromList('campaignOptions',val,renderCampaignsTable); }
+
+function deleteFromList(key, val, renderFn) {
+  if (!confirm('Delete this item?')) return;
+  setData(key,getData(key,[]).filter(i=>i!==val));
+  renderFn();
+}
+
+// ═══════════════════════════════════════════════════════════
+// MODALS
+// ═══════════════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }));
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+initDefaults();
+</script>
+</body>
+</html>
