@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_heading %}{{ title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ title }}</div>
+    <div class="page-subtitle">
+      <span class="live-dot"></span>&nbsp;
+      <span id="auditCount">{{ audits|length }}</span> audit(s) — updates every 30s
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="{{ url_for('new_audit') }}" class="btn btn-primary">+ New Audit</a>
+    <a href="{{ url_for('export_report') }}{% if request.args %}?{{ request.query_string.decode() }}{% endif %}" class="btn btn-outline">⬇ Export CSV</a>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="GET" class="filter-bar" id="filterForm">
+  {% if session.role == 'admin' and auditors is defined %}
+  <div class="form-group">
+    <label>Auditor</label>
+    <select name="auditor" class="form-control" onchange="this.form.submit()">
+      <option value="">All Auditors</option>
+      {% for u in auditors %}
+      <option value="{{ u.id }}" {% if filters.auditor == u.id|string %}selected{% endif %}>{{ u.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  {% if issue_types is defined %}
+  <div class="form-group">
+    <label>Issue Type</label>
+    <select name="issue_type" class="form-control" onchange="this.form.submit()">
+      <option value="">All Issues</option>
+      {% for i in issue_types %}
+      <option value="{{ i.issue_type }}" {% if filters.issue_type == i.issue_type %}selected{% endif %}>{{ i.issue_type }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div class="form-group">
+    <label>Call Date From</label>
+    <input type="date" name="date_from" class="form-control" value="{{ filters.date_from }}" onchange="this.form.submit()">
+  </div>
+  <div class="form-group">
+    <label>Call Date To</label>
+    <input type="date" name="date_to" class="form-control" value="{{ filters.date_to }}" onchange="this.form.submit()">
+  </div>
+  <div class="form-group" style="min-width:auto;flex:none;">
+    <label>&nbsp;</label>
+    <a href="{{ url_for('all_audits') }}" class="btn btn-outline">Clear</a>
+  </div>
+</form>
+
+<!-- Table -->
+<div class="card" style="padding:0;">
+  <div class="table-wrap">
+    <table id="auditsTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Advisor</th>
+          <th>Partner</th>
+          <th>Calling No.</th>
+          <th>Campaign</th>
+          <th>Call Date</th>
+          <th>Audit Date</th>
+          <th>Issue Type</th>
+          <th>Sub Issue</th>
+          <th>Disposed?</th>
+          <th>ACPT</th>
+          <th>DSAT Reason</th>
+          <th>Auditor</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="auditsBody">
+        {% for a in audits %}
+        <tr>
+          <td class="text-muted text-sm">{{ loop.index }}</td>
+          <td><strong>{{ a.advisor_name or '—' }}</strong></td>
+          <td>{{ a.partner or '—' }}</td>
+          <td>{{ a.calling_number or '—' }}</td>
+          <td>{{ a.campaign or '—' }}</td>
+          <td>{{ a.call_date or '—' }}</td>
+          <td>{{ a.audit_date or '—' }}</td>
+          <td>{% if a.issue_type %}<span class="badge b-blue">{{ a.issue_type }}</span>{% else %}—{% endif %}</td>
+          <td class="truncate" title="{{ a.sub_issue_type }}">{{ a.sub_issue_type or '—' }}</td>
+          <td>
+            {% if a.disposed_correctly == 'Yes' %}<span class="badge b-green">Yes</span>
+            {% elif a.disposed_correctly == 'No' %}<span class="badge b-red">No</span>
+            {% else %}—{% endif %}
+          </td>
+          <td>{% if a.acpt %}<span class="badge b-purple">{{ a.acpt }}</span>{% else %}—{% endif %}</td>
+          <td class="truncate" title="{{ a.dsat_reason }}">{{ a.dsat_reason or '—' }}</td>
+          <td>{{ a.auditor_name }}</td>
+          <td>
+            <div style="display:flex;gap:5px;">
+              <a href="{{ url_for('edit_audit', audit_id=a.id) }}" class="btn btn-outline btn-sm">Edit</a>
+              {% if session.role == 'admin' %}
+              <form method="POST" action="{{ url_for('delete_audit', audit_id=a.id) }}" onsubmit="return confirm('Delete this audit?')">
+                <button class="btn btn-danger btn-sm">Del</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        <!-- Detail row -->
+        <tr style="background:#f8fbff;">
+          <td colspan="14" style="padding:0 13px 10px;">
+            {% if a.call_summary or a.areas_of_improvement or a.actionable_items or a.reason_for_acpt %}
+            <details style="font-size:12px;">
+              <summary style="cursor:pointer;color:#1a56db;font-weight:600;padding:5px 0;">▸ View Details</summary>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:10px;padding-bottom:4px;">
+                {% if a.call_summary %}
+                <div><div style="font-weight:700;color:#374151;margin-bottom:3px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Call Summary</div><div style="color:#64748b;line-height:1.55;">{{ a.call_summary }}</div></div>
+                {% endif %}
+                {% if a.areas_of_improvement %}
+                <div><div style="font-weight:700;color:#374151;margin-bottom:3px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Areas of Improvement</div><div style="color:#64748b;line-height:1.55;">{{ a.areas_of_improvement }}</div></div>
+                {% endif %}
+                {% if a.reason_for_acpt %}
+                <div><div style="font-weight:700;color:#374151;margin-bottom:3px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Reason for ACPT</div><div style="color:#64748b;line-height:1.55;">{{ a.reason_for_acpt }}</div></div>
+                {% endif %}
+                {% if a.actionable_items %}
+                <div><div style="font-weight:700;color:#374151;margin-bottom:3px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;">Actionable Items</div><div style="color:#64748b;line-height:1.55;">{{ a.actionable_items }}</div></div>
+                {% endif %}
+              </div>
+            </details>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if not audits %}
+    <div class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p>No audits found.</p>
+      <a href="{{ url_for('new_audit') }}" class="btn btn-primary">+ New Audit</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Live refresh every 30 seconds via API feed
+function refreshFeed() {
+  fetch('/api/audits-feed')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('auditCount').textContent = data.length;
+    })
+    .catch(() => {});
+}
+setInterval(refreshFeed, 30000);
+</script>
+{% endblock %}

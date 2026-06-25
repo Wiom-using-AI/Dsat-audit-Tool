@@ -1,0 +1,10 @@
+# Database (auto-created, do not commit)
+dsat_app/dsat.db
+
+# Temp files
+dsat_copy.xlsx
+structure.txt
+__pycache__/
+*.pyc
+*.pyo
+.env
