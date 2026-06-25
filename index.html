@@ -178,7 +178,7 @@ tbody tr:hover td{background:#f8fbff}
       <input type="password" id="loginPw" class="form-control" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
     <button class="btn btn-primary btn-full" onclick="doLogin()" style="margin-top:8px;">Sign In →</button>
-    <p style="text-align:center;font-size:12px;color:#8a9bb0;margin-top:20px;">Default admin: admin@wiom.in / admin123</p>
+    <p style="text-align:center;font-size:12px;color:#8a9bb0;margin-top:20px;">Contact your admin for login credentials.</p>
   </div>
 </div>
 
@@ -199,6 +199,7 @@ tbody tr:hover td{background:#f8fbff}
       <button class="nav-item" onclick="showPage('auditForm')"><span class="ni">➕</span> New Audit</button>
       <button class="nav-item" onclick="showPage('allAudits')"><span class="ni">📋</span> All Audits</button>
       <button class="nav-item" onclick="exportCSV()"><span class="ni">⬇</span> Export CSV</button>
+      <button class="nav-item" onclick="showPage('viewDsatReasons')"><span class="ni">🔖</span> DSAT Reasons</button>
       <div id="adminNav">
         <div class="nav-lbl" style="margin-top:12px;">Admin</div>
         <button class="nav-item" onclick="showPage('adminUsers')"><span class="ni">👥</span> Manage Users</button>
@@ -329,6 +330,14 @@ tbody tr:hover td{background:#f8fbff}
           <div class="form-group" style="min-width:auto;flex:none;"><label>&nbsp;</label><button class="btn btn-outline" onclick="clearFilters()">Clear</button></div>
         </div>
         <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Advisor</th><th>Partner</th><th>Calling No.</th><th>Campaign</th><th>Call Date</th><th>Audit Date</th><th>Issue Type</th><th>Sub Issue</th><th>Disposed?</th><th>ACPT</th><th>DSAT Reason</th><th>Auditor</th><th>Actions</th></tr></thead><tbody id="auditsBody"></tbody></table><div id="auditsEmpty" class="empty-state hidden"><div class="empty-icon">📋</div><p>No audits found.</p></div></div></div>
+      </div>
+
+      <!-- VIEW DSAT REASONS (read-only for all users) -->
+      <div id="pageViewDsatReasons" class="hidden">
+        <div class="page-header">
+          <div><div class="page-title">DSAT Reasons</div><div class="page-subtitle">Reference guide — categories, reasons and explanations</div></div>
+        </div>
+        <div id="viewDsatReasonsContent"></div>
       </div>
 
       <!-- ADMIN: USERS -->
@@ -596,8 +605,8 @@ function changePassword() {
 // ═══════════════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════════════
-const pageTitles = {dashboard:'Dashboard',auditForm:'New Audit',allAudits:'All Audits',adminUsers:'Manage Users',adminDispositions:'Manage Dispositions',adminDsatReasons:'DSAT Reasons',adminAcpt:'ACPT Options',adminPartners:'Partners',adminCampaigns:'Campaigns',changePw:'Change Password'};
-const pageIds = ['dashboard','auditForm','allAudits','adminUsers','adminDispositions','adminDsatReasons','adminAcpt','adminPartners','adminCampaigns','changePw'];
+const pageTitles = {dashboard:'Dashboard',auditForm:'New Audit',allAudits:'All Audits',viewDsatReasons:'DSAT Reasons',adminUsers:'Manage Users',adminDispositions:'Manage Dispositions',adminDsatReasons:'DSAT Reasons (Admin)',adminAcpt:'ACPT Options',adminPartners:'Partners',adminCampaigns:'Campaigns',changePw:'Change Password'};
+const pageIds = ['dashboard','auditForm','allAudits','viewDsatReasons','adminUsers','adminDispositions','adminDsatReasons','adminAcpt','adminPartners','adminCampaigns','changePw'];
 
 function showPage(name) {
   pageIds.forEach(p => document.getElementById('page'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('hidden'));
@@ -610,6 +619,7 @@ function showPage(name) {
   if (name==='dashboard') renderDashboard();
   if (name==='allAudits') renderAuditsTable();
   if (name==='auditForm') initAuditForm();
+  if (name==='viewDsatReasons') renderViewDsatReasons();
   if (name==='adminUsers') renderUsersTable();
   if (name==='adminDispositions') renderDispositionsTable();
   if (name==='adminDsatReasons') renderDsatReasonsTable();
@@ -869,6 +879,35 @@ function exportCSV() {
   a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
   a.download = `dsat_report_${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
+}
+
+// ═══════════════════════════════════════════════════════════
+// VIEW DSAT REASONS (read-only for all users)
+// ═══════════════════════════════════════════════════════════
+function renderViewDsatReasons() {
+  const drs = getData('dsatReasons', []);
+  const cats = [...new Set(drs.map(d => d.cat))];
+  const container = document.getElementById('viewDsatReasonsContent');
+  container.innerHTML = cats.map(cat => {
+    const reasons = drs.filter(d => d.cat === cat);
+    return `
+      <div class="card" style="margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+          ${cat}<span style="flex:1;height:1px;background:var(--blue-light);display:block;"></span>
+        </div>
+        <div style="display:grid;gap:12px;">
+          ${reasons.map(r => `
+            <div style="display:flex;gap:16px;padding:14px;background:#f8fafc;border-radius:10px;border:1px solid var(--border);">
+              <div style="flex-shrink:0;width:4px;border-radius:4px;background:var(--blue);"></div>
+              <div>
+                <div style="font-weight:600;font-size:13.5px;color:var(--text);margin-bottom:4px;">${r.reason}</div>
+                <div style="font-size:12.5px;color:var(--muted);line-height:1.6;">${r.desc || '—'}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // ═══════════════════════════════════════════════════════════
