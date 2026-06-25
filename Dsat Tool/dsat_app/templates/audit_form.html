@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Audit' if audit else 'New Audit' }}{% endblock %}
+{% block page_heading %}{{ 'Edit Audit' if audit else 'New DSAT Audit' }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">{{ 'Edit Audit' if audit else 'New DSAT Audit' }}</div>
+    <div class="page-subtitle">Fill in all details based on ACPT analysis</div>
+  </div>
+  <a href="{{ url_for('all_audits') }}" class="btn btn-outline">← Back</a>
+</div>
+
+<form method="POST">
+
+  <!-- CALL DETAILS -->
+  <div class="card">
+    <div class="section-label">Call Details</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Auditor Name</label>
+        <input type="text" class="form-control" value="{{ session.user_name }}" readonly>
+      </div>
+      <div class="form-group">
+        <label>Advisor Name <span class="required">*</span></label>
+        <input type="text" name="advisor_name" class="form-control" required
+          value="{{ audit.advisor_name if audit else '' }}" placeholder="Full name of advisor">
+      </div>
+      <div class="form-group">
+        <label>Partner</label>
+        <select name="partner" class="form-control">
+          <option value="">— Select Partner —</option>
+          {% for p in partner_options %}
+          <option value="{{ p.label }}" {% if audit and audit.partner == p.label %}selected{% endif %}>{{ p.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Calling Number <span class="required">*</span></label>
+        <input type="text" name="calling_number" class="form-control" required
+          value="{{ audit.calling_number if audit else '' }}" placeholder="Customer mobile number">
+      </div>
+      <div class="form-group">
+        <label>Call ID</label>
+        <input type="text" name="call_id" class="form-control"
+          value="{{ audit.call_id if audit else '' }}" placeholder="Call recording ID">
+      </div>
+      <div class="form-group">
+        <label>Call Date <span class="required">*</span></label>
+        <input type="date" name="call_date" class="form-control" required
+          value="{{ audit.call_date if audit else '' }}">
+      </div>
+      <div class="form-group">
+        <label>Audit Date <span class="required">*</span></label>
+        <input type="date" name="audit_date" class="form-control" required
+          value="{{ audit.audit_date if audit else today }}">
+      </div>
+      <div class="form-group">
+        <label>Campaign</label>
+        <select name="campaign" class="form-control">
+          <option value="">— Select Campaign —</option>
+          {% for c in campaign_options %}
+          <option value="{{ c.label }}" {% if audit and audit.campaign == c.label %}selected{% endif %}>{{ c.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- DISPOSITION -->
+  <div class="card">
+    <div class="section-label">Disposition</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Issue Type <span class="required">*</span></label>
+        <select name="issue_type" id="issue_type" class="form-control" required onchange="loadSubIssues()">
+          <option value="">— Select Issue Type —</option>
+          {% for row in issue_types %}
+          <option value="{{ row.issue_type }}" {% if audit and audit.issue_type == row.issue_type %}selected{% endif %}>
+            {{ row.issue_type }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Sub Issue Type <span class="required">*</span></label>
+        <select name="sub_issue_type" id="sub_issue_type" class="form-control" required>
+          <option value="">— Select Sub Issue —</option>
+          {% if audit and audit.sub_issue_type %}
+          <option value="{{ audit.sub_issue_type }}" selected>{{ audit.sub_issue_type }}</option>
+          {% endif %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Disposed Correctly?</label>
+        <select name="disposed_correctly" class="form-control">
+          <option value="">— Select —</option>
+          <option value="Yes" {% if audit and audit.disposed_correctly == 'Yes' %}selected{% endif %}>Yes</option>
+          <option value="No" {% if audit and audit.disposed_correctly == 'No' %}selected{% endif %}>No</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALL SUMMARY -->
+  <div class="card">
+    <div class="section-label">Call Summary & Analysis</div>
+    <div class="form-group">
+      <label>Call Summary</label>
+      <textarea name="call_summary" class="form-control" rows="4"
+        placeholder="Summarise what happened during the call...">{{ audit.call_summary if audit else '' }}</textarea>
+    </div>
+    <div class="form-group">
+      <label>Areas of Improvement</label>
+      <textarea name="areas_of_improvement" class="form-control" rows="3"
+        placeholder="What could the agent have done better?">{{ audit.areas_of_improvement if audit else '' }}</textarea>
+    </div>
+  </div>
+
+  <!-- ACPT ANALYSIS -->
+  <div class="card">
+    <div class="section-label">ACPT Analysis</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Customer Satisfaction — ACPT <span class="required">*</span></label>
+        <select name="acpt" class="form-control" required>
+          <option value="">— Select ACPT Category —</option>
+          {% for opt in acpt_options %}
+          <option value="{{ opt.label }}" {% if audit and audit.acpt == opt.label %}selected{% endif %}>
+            {{ opt.label }}
+          </option>
+          {% endfor %}
+        </select>
+        <div class="form-hint">Primary reason for customer dissatisfaction.</div>
+      </div>
+      <div class="form-group">
+        <label>Reason for ACPT</label>
+        <textarea name="reason_for_acpt" class="form-control" rows="3"
+          placeholder="Explain why the customer was dissatisfied under this ACPT category...">{{ audit.reason_for_acpt if audit else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- DSAT REASON -->
+  <div class="card">
+    <div class="section-label">D-Sat Reason</div>
+    <div class="form-group">
+      <label>D-Sat Reason <span class="required">*</span></label>
+      <select name="dsat_reason" id="dsat_reason" class="form-control" required onchange="showDsatInfo()">
+        <option value="">— Select DSAT Reason —</option>
+        {% set ns = namespace(cur='') %}
+        {% for r in dsat_reasons %}
+          {% if r.category != ns.cur %}
+            {% if ns.cur != '' %}</optgroup>{% endif %}
+            <optgroup label="{{ r.category }}">
+            {% set ns.cur = r.category %}
+          {% endif %}
+          <option value="{{ r.reason }}"
+            data-desc="{{ r.description|e }}"
+            data-cat="{{ r.category|e }}"
+            {% if audit and audit.dsat_reason == r.reason %}selected{% endif %}>
+            {{ r.reason }}
+          </option>
+        {% endfor %}
+        </optgroup>
+      </select>
+      <div class="dsat-info {% if audit and audit.dsat_reason %}show{% endif %}" id="dsatInfo">
+        <div class="dsat-info-cat" id="dsatCat"></div>
+        <div id="dsatDesc"></div>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top:4px;">
+      <label>Actionable Items / Improvement</label>
+      <textarea name="actionable_items" class="form-control" rows="3"
+        placeholder="Specific coaching points or action items...">{{ audit.actionable_items if audit else '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:4px;margin-bottom:32px;">
+    <a href="{{ url_for('all_audits') }}" class="btn btn-outline">Cancel</a>
+    <button type="submit" class="btn btn-primary">
+      {{ '💾 Update Audit' if audit else '✅ Submit Audit' }}
+    </button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const today = new Date().toISOString().split('T')[0];
+
+function loadSubIssues(preselect) {
+  const val = document.getElementById('issue_type').value;
+  const sub = document.getElementById('sub_issue_type');
+  if (!val) { sub.innerHTML = '<option value="">— Select Sub Issue —</option>'; return; }
+  fetch('/api/sub-dispositions?issue_type=' + encodeURIComponent(val))
+    .then(r => r.json())
+    .then(data => {
+      sub.innerHTML = '<option value="">— Select Sub Issue —</option>';
+      data.forEach(s => {
+        const o = document.createElement('option');
+        o.value = s; o.textContent = s;
+        if (s === preselect) o.selected = true;
+        sub.appendChild(o);
+      });
+    });
+}
+
+function showDsatInfo() {
+  const sel = document.getElementById('dsat_reason');
+  const opt = sel.options[sel.selectedIndex];
+  const box = document.getElementById('dsatInfo');
+  if (opt && opt.value) {
+    document.getElementById('dsatCat').textContent = opt.getAttribute('data-cat') || '';
+    document.getElementById('dsatDesc').textContent = opt.getAttribute('data-desc') || '';
+    box.classList.add('show');
+  } else {
+    box.classList.remove('show');
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const preselect = "{{ audit.sub_issue_type if audit else '' }}";
+  if (document.getElementById('issue_type').value) loadSubIssues(preselect);
+  showDsatInfo();
+});
+</script>
+{% endblock %}
