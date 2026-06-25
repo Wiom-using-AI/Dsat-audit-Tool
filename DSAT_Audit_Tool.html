@@ -179,6 +179,21 @@ tbody tr:hover td{background:#f8fbff}
     </div>
     <button class="btn btn-primary btn-full" onclick="doLogin()" style="margin-top:8px;">Sign In →</button>
     <p style="text-align:center;font-size:12px;color:#8a9bb0;margin-top:20px;">Contact your admin for login credentials.</p>
+
+    <!-- Setup Code Section -->
+    <div style="margin-top:20px;border-top:1px solid #e2e8f0;padding-top:16px;">
+      <button onclick="toggleSetup()" style="background:none;border:none;cursor:pointer;font-size:12px;color:#4361ee;width:100%;text-align:center;">
+        🔑 Have a Setup Code? Click here
+      </button>
+      <div id="setupSection" style="display:none;margin-top:12px;">
+        <div class="form-group" style="margin-bottom:10px;">
+          <label style="font-size:12px;color:#64748b;">Paste Setup Code from your admin:</label>
+          <textarea id="setupCodeInput" class="form-control" rows="3" placeholder="Paste your setup code here..." style="font-size:11px;font-family:monospace;"></textarea>
+        </div>
+        <button class="btn btn-success btn-full" onclick="applySetupCode()" style="font-size:13px;">Apply Setup Code & Login</button>
+        <div id="setupMsg" style="margin-top:8px;font-size:12px;text-align:center;"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -342,7 +357,21 @@ tbody tr:hover td{background:#f8fbff}
 
       <!-- ADMIN: USERS -->
       <div id="pageAdminUsers" class="hidden">
-        <div class="page-header"><div><div class="page-title">Manage Users</div><div class="page-subtitle">Add auditors, reset passwords, activate/deactivate accounts</div></div><button class="btn btn-primary" onclick="openModal('modalAddUser')">+ Add User</button></div>
+        <div class="page-header"><div><div class="page-title">Manage Users</div><div class="page-subtitle">Add auditors, reset passwords, activate/deactivate accounts</div></div>
+          <div class="header-actions">
+            <button class="btn btn-outline" onclick="generateSetupCode()" title="Generate a code to share with QAs so they can log in on their browser">📋 Generate Setup Code</button>
+            <button class="btn btn-primary" onclick="openModal('modalAddUser')">+ Add User</button>
+          </div>
+        </div>
+        <div class="card" style="background:#eff6ff;border:1px solid #bfdbfe;padding:14px 18px;margin-bottom:16px;">
+          <div style="font-size:13px;color:#1d4ed8;font-weight:600;margin-bottom:4px;">📋 How to give QA access:</div>
+          <div style="font-size:12.5px;color:#1e40af;line-height:1.6;">
+            1. Add the user above with their name, email & password.<br>
+            2. Click <strong>"Generate Setup Code"</strong> — it copies a code to your clipboard.<br>
+            3. Send that code to your QA (WhatsApp/email).<br>
+            4. QA opens the tool link → clicks <strong>"Have a Setup Code?"</strong> → pastes it → logs in with their credentials.
+          </div>
+        </div>
         <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody id="usersBody"></tbody></table></div></div>
       </div>
 
@@ -560,6 +589,46 @@ function nextId(type) {
 // AUTH
 // ═══════════════════════════════════════════════════════════
 let currentUser = null;
+
+function toggleSetup() {
+  const s = document.getElementById('setupSection');
+  s.style.display = s.style.display === 'none' ? 'block' : 'none';
+}
+
+function applySetupCode() {
+  const code = document.getElementById('setupCodeInput').value.trim();
+  const msg = document.getElementById('setupMsg');
+  try {
+    const decoded = JSON.parse(atob(code));
+    if (!decoded.users || !Array.isArray(decoded.users)) throw new Error('Invalid code');
+    // Restore all data from the setup code
+    Object.keys(decoded).forEach(key => setData(key, decoded[key]));
+    msg.innerHTML = '<span style="color:#059669;">✅ Setup applied! You can now log in.</span>';
+    document.getElementById('setupCodeInput').value = '';
+  } catch(e) {
+    msg.innerHTML = '<span style="color:#dc2626;">❌ Invalid setup code. Please ask your admin for a new one.</span>';
+  }
+}
+
+function generateSetupCode() {
+  const payload = {
+    users: getData('users', []),
+    dispositions: getData('dispositions', []),
+    dsatReasons: getData('dsatReasons', []),
+    acptOptions: getData('acptOptions', []),
+    partnerOptions: getData('partnerOptions', []),
+    campaignOptions: getData('campaignOptions', []),
+    nextId: getData('nextId', {})
+  };
+  const code = btoa(JSON.stringify(payload));
+  // Copy to clipboard
+  navigator.clipboard.writeText(code).then(() => {
+    flash('success', '✅ Setup Code copied to clipboard! Share it with your QA so they can log in.');
+  }).catch(() => {
+    // fallback: show in a prompt
+    prompt('Copy this Setup Code and share with your QA:', code);
+  });
+}
 
 function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
