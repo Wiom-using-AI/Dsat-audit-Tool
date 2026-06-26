@@ -1,5 +1,6 @@
 // DSAT Audit Tool — Google Apps Script Backend
 // Paste this in Google Apps Script and deploy as Web App
+// Execute as: Me | Who has access: Anyone (important!)
 
 const SHEET_NAME = 'Audits';
 const HEADERS = [
@@ -9,22 +10,37 @@ const HEADERS = [
   'ACPT','Reason for ACPT','D-Sat Reason','Actionable Items','Submitted At'
 ];
 
+function doOptions(e) {
+  return ContentService.createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
 function doGet(e) {
-  const action = e.parameter.action;
-  if (action === 'getAudits') return getAudits(e);
-  return ContentService.createTextOutput(JSON.stringify({status:'ok'}))
-    .setMimeType(ContentService.MimeType.JSON);
+  try {
+    const action = e.parameter.action;
+    if (action === 'getAudits') return respond(getAudits(e));
+    return respond({status:'ok', message:'DSAT API running'});
+  } catch(err) {
+    return respond({status:'error', message: err.toString()});
+  }
 }
 
 function doPost(e) {
   try {
     const data = JSON.parse(e.postData.contents);
-    if (data.action === 'saveAudit') return saveAudit(data);
-    if (data.action === 'deleteAudit') return deleteAudit(data);
-    return ok({message:'unknown action'});
+    if (data.action === 'saveAudit') return respond(saveAudit(data));
+    if (data.action === 'deleteAudit') return respond(deleteAudit(data));
+    return respond({status:'ok', message:'unknown action'});
   } catch(err) {
-    return error(err.toString());
+    return respond({status:'error', message: err.toString()});
   }
+}
+
+function respond(data) {
+  const output = ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+  return output;
 }
 
 function getSheet() {
@@ -33,9 +49,14 @@ function getSheet() {
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_NAME);
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
-    sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold')
-      .setBackground('#1a56db').setFontColor('#ffffff');
+    sheet.getRange(1, 1, 1, HEADERS.length)
+      .setFontWeight('bold')
+      .setBackground('#1a56db')
+      .setFontColor('#ffffff');
     sheet.setFrozenRows(1);
+    sheet.setColumnWidth(1, 80);
+    sheet.setColumnWidth(12, 150);
+    sheet.setColumnWidth(13, 300);
   }
   return sheet;
 }
@@ -44,19 +65,20 @@ function saveAudit(data) {
   const sheet = getSheet();
   const id = data.id || Utilities.getUuid();
 
-  // Check if audit already exists (for updates)
   const rows = sheet.getDataRange().getValues();
   let rowIndex = -1;
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] == data.id) { rowIndex = i + 1; break; }
+    if (String(rows[i][0]) === String(data.id)) { rowIndex = i + 1; break; }
   }
 
   const row = [
-    id, data.auditorName, data.advisorName, data.partner, data.callingNo,
-    data.callDate, data.auditDate, data.callId, data.campaign,
-    data.issueType, data.subIssue, data.disposed, data.callSummary,
-    data.areasImprovement, data.acpt, data.reasonAcpt, data.dsatReason,
-    data.actionable, new Date().toLocaleString('en-IN')
+    id, data.auditorName || '', data.advisorName || '', data.partner || '',
+    data.callingNo || '', data.callDate || '', data.auditDate || '',
+    data.callId || '', data.campaign || '', data.issueType || '',
+    data.subIssue || '', data.disposed || '', data.callSummary || '',
+    data.areasImprovement || '', data.acpt || '', data.reasonAcpt || '',
+    data.dsatReason || '', data.actionable || '',
+    new Date().toLocaleString('en-IN', {timeZone: 'Asia/Kolkata'})
   ];
 
   if (rowIndex > 0) {
@@ -65,36 +87,37 @@ function saveAudit(data) {
     sheet.appendRow(row);
   }
 
-  return ok({id: id, message: 'Audit saved'});
+  return {status:'ok', id: id, message: 'Audit saved'};
 }
 
 function deleteAudit(data) {
   const sheet = getSheet();
   const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
-    if (rows[i][0] == data.id) {
+    if (String(rows[i][0]) === String(data.id)) {
       sheet.deleteRow(i + 1);
-      return ok({message: 'Deleted'});
+      return {status:'ok', message: 'Deleted'};
     }
   }
-  return ok({message: 'Not found'});
+  return {status:'ok', message: 'Not found'};
 }
 
 function getAudits(e) {
   const sheet = getSheet();
   const rows = sheet.getDataRange().getValues();
-  if (rows.length <= 1) return jsonResponse([]);
+  if (rows.length <= 1) return [];
 
   const auditorFilter = e.parameter.auditor || '';
   const audits = [];
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
+    if (!row[0]) continue; // skip empty rows
     if (auditorFilter && row[1] !== auditorFilter) continue;
     audits.push({
       id: row[0], auditorName: row[1], advisorName: row[2],
-      partner: row[3], callingNo: row[4], callDate: row[5],
-      auditDate: row[6], callId: row[7], campaign: row[8],
+      partner: row[3], callingNo: row[4], callDate: String(row[5]),
+      auditDate: String(row[6]), callId: row[7], campaign: row[8],
       issueType: row[9], subIssue: row[10], disposed: row[11],
       callSummary: row[12], areasImprovement: row[13],
       acpt: row[14], reasonAcpt: row[15], dsatReason: row[16],
@@ -102,23 +125,5 @@ function getAudits(e) {
     });
   }
 
-  return jsonResponse(audits.reverse());
-}
-
-function jsonResponse(data) {
-  return ContentService
-    .createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function ok(data) {
-  return ContentService
-    .createTextOutput(JSON.stringify({status:'ok', ...data}))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function error(msg) {
-  return ContentService
-    .createTextOutput(JSON.stringify({status:'error', message:msg}))
-    .setMimeType(ContentService.MimeType.JSON);
+  return audits.reverse();
 }

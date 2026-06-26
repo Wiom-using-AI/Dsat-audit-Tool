@@ -910,11 +910,25 @@ function showDsatInfo() {
 // ── Google Sheets integration ──────────────────────────────
 function getScriptUrl() { return localStorage.getItem('dsat_script_url') || ''; }
 
+function sheetsRequest(url, options) {
+  // Google Apps Script redirects — must follow with no-cors fallback
+  return fetch(url, { ...options, redirect: 'follow', mode: 'cors' })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(text => {
+      try { return JSON.parse(text); }
+      catch(e) { throw new Error('Invalid JSON: ' + text.substring(0, 100)); }
+    });
+}
+
 function postToSheets(audit) {
   const url = getScriptUrl();
   if (!url) return;
-  fetch(url, {
+  sheetsRequest(url, {
     method: 'POST',
+    headers: { 'Content-Type': 'text/plain' },
     body: JSON.stringify({action: 'saveAudit', ...audit})
   }).catch(() => {});
 }
@@ -922,16 +936,16 @@ function postToSheets(audit) {
 function fetchAllAuditsFromSheets() {
   const url = getScriptUrl();
   if (!url) return Promise.resolve(null);
-  return fetch(url + '?action=getAudits')
-    .then(r => r.json())
+  return sheetsRequest(url + '?action=getAudits', { method: 'GET' })
+    .then(data => Array.isArray(data) ? data : (data.status === 'ok' ? [] : null))
     .catch(() => null);
 }
 
 function fetchMyAuditsFromSheets(auditorName) {
   const url = getScriptUrl();
   if (!url) return Promise.resolve(null);
-  return fetch(url + '?action=getAudits&auditor=' + encodeURIComponent(auditorName))
-    .then(r => r.json())
+  return sheetsRequest(url + '?action=getAudits&auditor=' + encodeURIComponent(auditorName), { method: 'GET' })
+    .then(data => Array.isArray(data) ? data : [])
     .catch(() => null);
 }
 // ───────────────────────────────────────────────────────────
