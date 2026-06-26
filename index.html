@@ -335,17 +335,39 @@ tbody tr:hover td{background:#f8fbff}
       <!-- ALL AUDITS -->
       <div id="pageAllAudits" class="hidden">
         <div class="page-header">
-          <div><div class="page-title">All Audits</div><div class="page-subtitle"><span class="live-dot"></span> <span id="auditCount">0</span> audit(s) — live</div></div>
-          <div class="header-actions"><button class="btn btn-primary" onclick="showPage('auditForm')">+ New Audit</button><button class="btn btn-outline" onclick="exportCSV()">⬇ Export CSV</button></div>
+          <div><div class="page-title">All Audits</div><div class="page-subtitle"><span class="live-dot"></span> <span id="auditCount">0</span> audit(s)</div></div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="showPage('auditForm')">+ New Audit</button>
+            <button class="btn btn-outline" onclick="exportCurrentAudits()">⬇ Export CSV</button>
+            <button class="btn btn-outline" onclick="renderAuditsTable()" title="Refresh">↻ Refresh</button>
+          </div>
         </div>
-        <div class="filter-bar">
-          <div class="form-group"><label>Search Advisor</label><input type="text" id="filterAdvisor" class="form-control" placeholder="Advisor name..." oninput="renderAuditsTable()"></div>
-          <div class="form-group"><label>Issue Type</label><select id="filterIssue" class="form-control" onchange="renderAuditsTable()"><option value="">All Issues</option></select></div>
-          <div class="form-group"><label>ACPT</label><select id="filterAcpt" class="form-control" onchange="renderAuditsTable()"><option value="">All ACPT</option></select></div>
-          <div class="form-group"><label>Auditor</label><select id="filterAuditor" class="form-control" onchange="renderAuditsTable()"><option value="">All Auditors</option></select></div>
-          <div class="form-group" style="min-width:auto;flex:none;"><label>&nbsp;</label><button class="btn btn-outline" onclick="clearFilters()">Clear</button></div>
+        <!-- ROW 1 filters -->
+        <div class="filter-bar" style="flex-wrap:wrap;gap:12px;">
+          <div class="form-group" style="min-width:160px;flex:1;"><label>Search Advisor</label><input type="text" id="filterAdvisor" class="form-control" placeholder="Advisor name..." oninput="applyFilters()"></div>
+          <div class="form-group" style="min-width:140px;flex:1;"><label>Auditor</label><select id="filterAuditor" class="form-control" onchange="applyFilters()"><option value="">All Auditors</option></select></div>
+          <div class="form-group" style="min-width:140px;flex:1;"><label>Campaign</label><select id="filterCampaign" class="form-control" onchange="applyFilters()"><option value="">All Campaigns</option></select></div>
+          <div class="form-group" style="min-width:140px;flex:1;"><label>Issue Type</label><select id="filterIssue" class="form-control" onchange="applyFilters()"><option value="">All Issues</option></select></div>
+          <div class="form-group" style="min-width:120px;flex:1;"><label>ACPT</label><select id="filterAcpt" class="form-control" onchange="applyFilters()"><option value="">All ACPT</option></select></div>
+          <div class="form-group" style="min-width:120px;flex:1;"><label>Disposed?</label><select id="filterDisposed" class="form-control" onchange="applyFilters()"><option value="">All</option><option>Yes</option><option>No</option></select></div>
         </div>
-        <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Advisor</th><th>Partner</th><th>Calling No.</th><th>Campaign</th><th>Call Date</th><th>Audit Date</th><th>Issue Type</th><th>Sub Issue</th><th>Disposed?</th><th>ACPT</th><th>DSAT Reason</th><th>Auditor</th><th>Actions</th></tr></thead><tbody id="auditsBody"></tbody></table><div id="auditsEmpty" class="empty-state hidden"><div class="empty-icon">📋</div><p>No audits found.</p></div></div></div>
+        <!-- ROW 2 date filters -->
+        <div class="filter-bar" style="margin-top:-10px;flex-wrap:wrap;gap:12px;">
+          <div class="form-group" style="min-width:150px;flex:1;"><label>Call Date From</label><input type="date" id="filterCallFrom" class="form-control" onchange="applyFilters()"></div>
+          <div class="form-group" style="min-width:150px;flex:1;"><label>Call Date To</label><input type="date" id="filterCallTo" class="form-control" onchange="applyFilters()"></div>
+          <div class="form-group" style="min-width:150px;flex:1;"><label>Audit Date From</label><input type="date" id="filterAuditFrom" class="form-control" onchange="applyFilters()"></div>
+          <div class="form-group" style="min-width:150px;flex:1;"><label>Audit Date To</label><input type="date" id="filterAuditTo" class="form-control" onchange="applyFilters()"></div>
+          <div class="form-group" style="min-width:auto;flex:none;"><label>&nbsp;</label><button class="btn btn-outline" onclick="clearFilters()">Clear All</button></div>
+        </div>
+        <div class="card" style="padding:0;">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Advisor</th><th>Partner</th><th>Calling No.</th><th>Campaign</th><th>Call Date</th><th>Audit Date</th><th>Issue Type</th><th>Sub Issue</th><th>Disposed?</th><th>ACPT</th><th>DSAT Reason</th><th>Auditor</th><th></th></tr></thead>
+              <tbody id="auditsBody"></tbody>
+            </table>
+            <div id="auditsEmpty" class="empty-state hidden"><div class="empty-icon">📋</div><p>No audits found.</p></div>
+          </div>
+        </div>
       </div>
 
       <!-- VIEW DSAT REASONS (read-only for all users) -->
@@ -955,103 +977,118 @@ function submitAudit(e) {
 // ═══════════════════════════════════════════════════════════
 // ALL AUDITS TABLE
 // ═══════════════════════════════════════════════════════════
+let _adminAuditCache = null;
+
 function getVisibleAudits() {
   let audits = getData('audits', []);
   if (currentUser && currentUser.role !== 'admin') audits = audits.filter(a=>a.auditorId===currentUser.id);
   return audits;
 }
 
+function filterAudits(audits) {
+  const fa   = (document.getElementById('filterAdvisor')?.value||'').toLowerCase();
+  const fau  = document.getElementById('filterAuditor')?.value||'';
+  const fcam = document.getElementById('filterCampaign')?.value||'';
+  const fi   = document.getElementById('filterIssue')?.value||'';
+  const fac  = document.getElementById('filterAcpt')?.value||'';
+  const fdis = document.getElementById('filterDisposed')?.value||'';
+  const fCF  = document.getElementById('filterCallFrom')?.value||'';
+  const fCT  = document.getElementById('filterCallTo')?.value||'';
+  const fAF  = document.getElementById('filterAuditFrom')?.value||'';
+  const fAT  = document.getElementById('filterAuditTo')?.value||'';
+  return audits.filter(a => {
+    if (fa   && !(a.advisorName||'').toLowerCase().includes(fa)) return false;
+    if (fau  && a.auditorName !== fau)  return false;
+    if (fcam && a.campaign    !== fcam) return false;
+    if (fi   && a.issueType   !== fi)   return false;
+    if (fac  && a.acpt        !== fac)  return false;
+    if (fdis && a.disposed    !== fdis) return false;
+    if (fCF  && a.callDate  && a.callDate  < fCF) return false;
+    if (fCT  && a.callDate  && a.callDate  > fCT) return false;
+    if (fAF  && a.auditDate && a.auditDate < fAF) return false;
+    if (fAT  && a.auditDate && a.auditDate > fAT) return false;
+    return true;
+  });
+}
+
+function populateFilterDropdowns(audits) {
+  const set = (id, vals, label) => {
+    const el = document.getElementById(id); if (!el) return;
+    const cur = el.value;
+    el.innerHTML = `<option value="">${label}</option>` +
+      [...new Set(vals.filter(Boolean))].sort().map(v=>`<option ${v===cur?'selected':''}>${v}</option>`).join('');
+  };
+  set('filterAuditor',  audits.map(a=>a.auditorName), 'All Auditors');
+  set('filterCampaign', audits.map(a=>a.campaign),    'All Campaigns');
+  set('filterIssue',    audits.map(a=>a.issueType),   'All Issues');
+  set('filterAcpt',     audits.map(a=>a.acpt),        'All ACPT');
+}
+
+function applyFilters() {
+  if (_adminAuditCache) {
+    const filtered = filterAudits(_adminAuditCache);
+    document.getElementById('auditCount').textContent = filtered.length + ' of ' + _adminAuditCache.length;
+    renderAuditsRows(filtered);
+  } else {
+    renderAuditsLocal();
+  }
+}
+
+function clearFilters() {
+  ['filterAdvisor','filterAuditor','filterCampaign','filterIssue','filterAcpt',
+   'filterDisposed','filterCallFrom','filterCallTo','filterAuditFrom','filterAuditTo']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  applyFilters();
+}
+
 function renderAuditsTable() {
-  // Admin: fetch from Google Sheets if configured
+  const body = document.getElementById('auditsBody');
+  if (!body) return;
   if (currentUser && currentUser.role === 'admin' && getScriptUrl()) {
-    document.getElementById('auditsBody').innerHTML = '<tr><td colspan="14" style="text-align:center;padding:32px;color:#64748b;">Loading all audits from Google Sheets...</td></tr>';
+    body.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:40px;color:#64748b;font-size:13px;">⏳ Loading all QA audits from Google Sheets...</td></tr>';
     document.getElementById('auditsEmpty').classList.add('hidden');
-    fetchAllAuditsFromSheets().then(sheetsData => {
-      if (sheetsData && Array.isArray(sheetsData)) {
-        renderAuditsRows(sheetsData);
-        document.getElementById('auditCount').textContent = sheetsData.length;
+    fetchAllAuditsFromSheets().then(data => {
+      if (data && Array.isArray(data)) {
+        _adminAuditCache = data;
+        populateFilterDropdowns(data);
+        const filtered = filterAudits(data);
+        document.getElementById('auditCount').textContent = filtered.length + ' of ' + data.length;
+        renderAuditsRows(filtered);
+        renderDashboardCharts(data);
       } else {
+        _adminAuditCache = null;
         renderAuditsLocal();
       }
     });
     return;
   }
+  _adminAuditCache = null;
   renderAuditsLocal();
 }
 
 function renderAuditsLocal() {
-  let audits = getVisibleAudits();
-  const fa = document.getElementById('filterAdvisor').value.toLowerCase();
-  const fi = document.getElementById('filterIssue').value;
-  const fac = document.getElementById('filterAcpt').value;
-  const fau = document.getElementById('filterAuditor').value;
-  if (fa) audits = audits.filter(a=>(a.advisorName||'').toLowerCase().includes(fa));
-  if (fi) audits = audits.filter(a=>a.issueType===fi);
-  if (fac) audits = audits.filter(a=>a.acpt===fac);
-  if (fau) audits = audits.filter(a=>a.auditorName===fau);
-
-  document.getElementById('auditCount').textContent = audits.length;
-
-  // Populate filter dropdowns
   const allAudits = getVisibleAudits();
-  const issues = [...new Set(allAudits.map(a=>a.issueType).filter(Boolean))].sort();
-  const fi_sel = document.getElementById('filterIssue');
-  const curFi = fi_sel.value;
-  fi_sel.innerHTML = '<option value="">All Issues</option>' + issues.map(i=>`<option ${i===curFi?'selected':''}>${i}</option>`).join('');
-
-  const acpts = [...new Set(allAudits.map(a=>a.acpt).filter(Boolean))].sort();
-  const fac_sel = document.getElementById('filterAcpt');
-  const curFac = fac_sel.value;
-  fac_sel.innerHTML = '<option value="">All ACPT</option>' + acpts.map(a=>`<option ${a===curFac?'selected':''}>${a}</option>`).join('');
-
-  const auditors = [...new Set(allAudits.map(a=>a.auditorName).filter(Boolean))].sort();
-  const fau_sel = document.getElementById('filterAuditor');
-  const curFau = fau_sel.value;
-  fau_sel.innerHTML = '<option value="">All Auditors</option>' + auditors.map(a=>`<option ${a===curFau?'selected':''}>${a}</option>`).join('');
-
-  const body = document.getElementById('auditsBody');
-  const empty = document.getElementById('auditsEmpty');
-  if (!audits.length) { body.innerHTML=''; empty.classList.remove('hidden'); return; }
-  empty.classList.add('hidden');
-
-  body.innerHTML = audits.map((a,i)=>`
-    <tr>
-      <td class="text-muted text-sm">${i+1}</td>
-      <td><strong>${a.advisorName||'—'}</strong></td>
-      <td>${a.partner||'—'}</td>
-      <td>${a.callingNo||'—'}</td>
-      <td>${a.campaign||'—'}</td>
-      <td>${a.callDate||'—'}</td>
-      <td>${a.auditDate||'—'}</td>
-      <td>${a.issueType?`<span class="badge b-blue">${a.issueType}</span>`:'—'}</td>
-      <td class="truncate" title="${a.subIssue||''}">${a.subIssue||'—'}</td>
-      <td>${a.disposed==='Yes'?'<span class="badge b-green">Yes</span>':a.disposed==='No'?'<span class="badge b-red">No</span>':'—'}</td>
-      <td>${a.acpt?`<span class="badge b-purple">${a.acpt}</span>`:'—'}</td>
-      <td class="truncate" title="${a.dsatReason||''}">${a.dsatReason||'—'}</td>
-      <td>${a.auditorName||'—'}</td>
-      <td>
-        <div style="display:flex;gap:5px;">
-          <button class="btn btn-outline btn-sm" onclick="editAudit(${a.id})">Edit</button>
-          ${currentUser&&currentUser.role==='admin'?`<button class="btn btn-danger btn-sm" onclick="deleteAudit(${a.id})">Del</button>`:''}
-        </div>
-      </td>
-    </tr>
-    <tr style="background:#f8fbff;">
-      <td colspan="14" style="padding:0 13px 10px;">
-        ${(a.callSummary||a.areasImprovement||a.actionable||a.reasonAcpt)?`
-        <details style="font-size:12px;">
-          <summary style="cursor:pointer;color:#1a56db;font-weight:600;padding:5px 0;">▸ View Details</summary>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:10px;">
-            ${a.callSummary?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Call Summary</div><div style="color:#64748b;line-height:1.55;">${a.callSummary}</div></div>`:''}
-            ${a.areasImprovement?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Areas of Improvement</div><div style="color:#64748b;line-height:1.55;">${a.areasImprovement}</div></div>`:''}
-            ${a.reasonAcpt?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Reason for ACPT</div><div style="color:#64748b;line-height:1.55;">${a.reasonAcpt}</div></div>`:''}
-            ${a.actionable?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Actionable Items</div><div style="color:#64748b;line-height:1.55;">${a.actionable}</div></div>`:''}
-          </div>
-        </details>`:''}
-      </td>
-    </tr>
-  `).join('');
+  populateFilterDropdowns(allAudits);
+  const audits = filterAudits(allAudits);
+  const countEl = document.getElementById('auditCount');
+  if (countEl) countEl.textContent = audits.length + (allAudits.length !== audits.length ? ' of ' + allAudits.length : '');
+  renderAuditsRows(audits);
 }
+
+function exportCurrentAudits() {
+  const src = _adminAuditCache ? filterAudits(_adminAuditCache) : filterAudits(getVisibleAudits());
+  const headers = ['Advisor Name','Partner','Calling Number','Auditor','Call Date','Audit Date',
+    'Call ID','Campaign','Issue Type','Sub Issue','Disposed','ACPT','Reason for ACPT','DSAT Reason','Actionable Items'];
+  const rows = src.map(a=>[a.advisorName,a.partner,a.callingNo,a.auditorName,a.callDate,a.auditDate,
+    a.callId,a.campaign,a.issueType,a.subIssue,a.disposed,a.acpt,a.reasonAcpt,a.dsatReason,a.actionable]
+    .map(v=>`"${(v||'').replace(/"/g,'""')}"`));
+  const csv = '\ufeff' + [headers,...rows].map(r=>r.join(',')).join('\n');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  link.download = `dsat_audits_${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
+}
+
 
 function auditRowHTML(a, i) {
   return `
@@ -1180,20 +1217,47 @@ function renderViewDsatReasons() {
 // DASHBOARD CHARTS
 // ═══════════════════════════════════════════════════════════
 function renderDashboard() {
-  const audits = getData('audits',[]);
-  const myAudits = audits.filter(a=>currentUser&&a.auditorId===currentUser.id);
+  const localAudits = getData('audits',[]);
+  const myAudits = localAudits.filter(a=>currentUser&&a.auditorId===currentUser.id);
 
+  // For admin with Sheets: show live data
+  if (currentUser && currentUser.role === 'admin' && getScriptUrl()) {
+    // Show local stats first, then update with Sheets data
+    document.getElementById('statTotal').textContent = '...';
+    document.getElementById('statMine').textContent = myAudits.length;
+    document.getElementById('statReasons').textContent = '...';
+    document.getElementById('statAuditors').textContent = '...';
+    fetchAllAuditsFromSheets().then(data => {
+      if (data && Array.isArray(data)) {
+        _adminAuditCache = data;
+        renderDashboardStats(data, myAudits.length);
+        renderDashboardRecent(data);
+        renderDashboardCharts(data);
+      } else {
+        renderDashboardStats(localAudits, myAudits.length);
+        renderDashboardRecent(localAudits);
+        renderDashboardCharts(localAudits);
+      }
+    });
+    return;
+  }
+
+  const audits = currentUser && currentUser.role === 'admin' ? localAudits : myAudits;
+  renderDashboardStats(audits, myAudits.length);
+  renderDashboardRecent(audits);
+  renderDashboardCharts(audits);
+}
+
+function renderDashboardStats(audits, mine) {
   document.getElementById('statTotal').textContent = audits.length;
-  document.getElementById('statMine').textContent = myAudits.length;
+  document.getElementById('statMine').textContent = mine;
+  document.getElementById('statReasons').textContent = new Set(audits.map(a=>a.dsatReason).filter(Boolean)).size;
+  document.getElementById('statAuditors').textContent = new Set(audits.map(a=>a.auditorName).filter(Boolean)).size;
+}
 
-  const reasonTypes = [...new Set(audits.map(a=>a.dsatReason).filter(Boolean))];
-  document.getElementById('statReasons').textContent = reasonTypes.length;
-
-  const auditorNames = [...new Set(audits.map(a=>a.auditorName).filter(Boolean))];
-  document.getElementById('statAuditors').textContent = auditorNames.length;
-
-  // Recent
+function renderDashboardRecent(audits) {
   const body = document.getElementById('recentBody');
+  if (!body) return;
   body.innerHTML = audits.slice(0,10).map(a=>`
     <tr>
       <td><strong>${a.advisorName||'—'}</strong></td>
@@ -1205,18 +1269,16 @@ function renderDashboard() {
       <td>${a.auditorName||'—'}</td>
     </tr>
   `).join('') || '<tr><td colspan="7" style="text-align:center;padding:32px;color:#8a9bb0;">No audits yet.</td></tr>';
+}
 
-  // Charts
+function renderDashboardCharts(audits) {
   const count = arr => arr.reduce((acc,v)=>{ acc[v]=(acc[v]||0)+1; return acc; },{});
-
   const reasonCounts = count(audits.map(a=>a.dsatReason).filter(Boolean));
   const topReasons = Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
-
-  const acptCounts = count(audits.map(a=>a.acpt).filter(Boolean));
-  const issueCounts = count(audits.map(a=>a.issueType).filter(Boolean));
-  const disposedCounts = count(audits.map(a=>a.disposed).filter(Boolean));
+  const acptCounts    = count(audits.map(a=>a.acpt).filter(Boolean));
+  const issueCounts   = count(audits.map(a=>a.issueType).filter(Boolean));
+  const disposedCounts= count(audits.map(a=>a.disposed).filter(Boolean));
   const auditorCounts = count(audits.map(a=>a.auditorName).filter(Boolean));
-
   makeChart('chartReason','bar',topReasons.map(r=>r[0]),topReasons.map(r=>r[1]));
   makeChart('chartAcpt','doughnut',Object.keys(acptCounts),Object.values(acptCounts));
   makeChart('chartIssue','bar',Object.keys(issueCounts),Object.values(issueCounts));
