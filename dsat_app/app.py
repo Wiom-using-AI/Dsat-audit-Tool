@@ -341,29 +341,85 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    total = db_execute("SELECT COUNT(*) as c FROM audits", fetchone=True)['c']
-    my_audits = db_execute("SELECT COUNT(*) as c FROM audits WHERE auditor_id=?",
-                           (session['user_id'],), fetchone=True)['c']
-    reason_data = db_execute("""SELECT dsat_reason, COUNT(*) as cnt FROM audits
-        WHERE dsat_reason IS NOT NULL AND dsat_reason != ''
-        GROUP BY dsat_reason ORDER BY cnt DESC LIMIT 10""", fetchall=True)
-    acpt_data = db_execute("""SELECT acpt, COUNT(*) as cnt FROM audits
-        WHERE acpt IS NOT NULL AND acpt != '' GROUP BY acpt""", fetchall=True)
-    issue_data = db_execute("""SELECT issue_type, COUNT(*) as cnt FROM audits
-        WHERE issue_type IS NOT NULL AND issue_type != ''
-        GROUP BY issue_type ORDER BY cnt DESC""", fetchall=True)
-    trend_data = db_execute("""SELECT substr(audit_date,1,7) as month, COUNT(*) as cnt
-        FROM audits WHERE audit_date IS NOT NULL
-        GROUP BY month ORDER BY month DESC LIMIT 6""", fetchall=True)
-    disposed_data = db_execute("SELECT disposed_correctly, COUNT(*) as cnt FROM audits GROUP BY disposed_correctly", fetchall=True)
-    auditor_data = db_execute("""SELECT u.name, COUNT(a.id) as cnt FROM audits a
-        JOIN users u ON a.auditor_id = u.id GROUP BY u.id, u.name ORDER BY cnt DESC""", fetchall=True)
-    recent = db_execute("""SELECT a.*, u.name as auditor_name FROM audits a
-        JOIN users u ON a.auditor_id = u.id ORDER BY a.created_at DESC LIMIT 10""", fetchall=True)
-    return render_template('dashboard.html', total=total, my_audits=my_audits,
+    # ── Filters ──────────────────────────────────────────────
+    f_call_from  = request.args.get('call_from', '')
+    f_call_to    = request.args.get('call_to', '')
+    f_audit_from = request.args.get('audit_from', '')
+    f_audit_to   = request.args.get('audit_to', '')
+    f_campaign   = request.args.get('campaign', '')
+    f_partner    = request.args.get('partner', '')
+    f_auditor    = request.args.get('auditor', '')
+
+    # Build WHERE clause
+    where = "WHERE 1=1"
+    params = []
+    if session['role'] != 'admin':
+        where += " AND a.auditor_id=?"; params.append(session['user_id'])
+    if f_call_from:
+        where += " AND a.call_date>=?"; params.append(f_call_from)
+    if f_call_to:
+        where += " AND a.call_date<=?"; params.append(f_call_to)
+    if f_audit_from:
+        where += " AND a.audit_date>=?"; params.append(f_audit_from)
+    if f_audit_to:
+        where += " AND a.audit_date<=?"; params.append(f_audit_to)
+    if f_campaign:
+        where += " AND a.campaign=?"; params.append(f_campaign)
+    if f_partner:
+        where += " AND a.partner=?"; params.append(f_partner)
+    if f_auditor:
+        where += " AND u.name=?"; params.append(f_auditor)
+
+    base = f"FROM audits a JOIN users u ON a.auditor_id = u.id {where}"
+
+    total    = db_execute(f"SELECT COUNT(*) as c {base}", params, fetchone=True)['c']
+    my_count = db_execute("SELECT COUNT(*) as c FROM audits WHERE auditor_id=?",
+                          (session['user_id'],), fetchone=True)['c']
+
+    reason_data = db_execute(f"""SELECT a.dsat_reason, COUNT(*) as cnt {base}
+        AND a.dsat_reason IS NOT NULL AND a.dsat_reason != ''
+        GROUP BY a.dsat_reason ORDER BY cnt DESC LIMIT 10""", params, fetchall=True)
+
+    acpt_data = db_execute(f"""SELECT a.acpt, COUNT(*) as cnt {base}
+        AND a.acpt IS NOT NULL AND a.acpt != '' GROUP BY a.acpt""", params, fetchall=True)
+
+    issue_data = db_execute(f"""SELECT a.issue_type, COUNT(*) as cnt {base}
+        AND a.issue_type IS NOT NULL AND a.issue_type != ''
+        GROUP BY a.issue_type ORDER BY cnt DESC""", params, fetchall=True)
+
+    trend_data = db_execute(f"""SELECT substr(a.audit_date,1,7) as month, COUNT(*) as cnt {base}
+        AND a.audit_date IS NOT NULL
+        GROUP BY month ORDER BY month DESC LIMIT 12""", params, fetchall=True)
+
+    disposed_data = db_execute(f"""SELECT a.disposed_correctly, COUNT(*) as cnt {base}
+        GROUP BY a.disposed_correctly""", params, fetchall=True)
+
+    auditor_data = db_execute(f"""SELECT u.name, COUNT(a.id) as cnt {base}
+        GROUP BY u.id, u.name ORDER BY cnt DESC""", params, fetchall=True)
+
+    partner_data = db_execute(f"""SELECT a.partner, COUNT(*) as cnt {base}
+        AND a.partner IS NOT NULL AND a.partner != ''
+        GROUP BY a.partner ORDER BY cnt DESC""", params, fetchall=True)
+
+    recent = db_execute(f"""SELECT a.*, u.name as auditor_name {base}
+        ORDER BY a.created_at DESC LIMIT 10""", params, fetchall=True)
+
+    # Dropdown options for filter bar
+    auditor_list  = db_execute("SELECT DISTINCT name FROM users WHERE role='auditor' AND active=1 ORDER BY name", fetchall=True)
+    campaign_list = db_execute("SELECT label FROM campaign_options ORDER BY label", fetchall=True)
+    partner_list  = db_execute("SELECT label FROM partner_options ORDER BY label", fetchall=True)
+
+    filters = dict(call_from=f_call_from, call_to=f_call_to,
+                   audit_from=f_audit_from, audit_to=f_audit_to,
+                   campaign=f_campaign, partner=f_partner, auditor=f_auditor)
+
+    return render_template('dashboard.html',
+        total=total, my_audits=my_count,
         reason_data=reason_data, acpt_data=acpt_data, issue_data=issue_data,
         trend_data=trend_data, disposed_data=disposed_data,
-        auditor_data=auditor_data, recent=recent)
+        auditor_data=auditor_data, partner_data=partner_data, recent=recent,
+        auditor_list=auditor_list, campaign_list=campaign_list, partner_list=partner_list,
+        filters=filters)
 
 # ─── AUDIT FORM ──────────────────────────────────────────────────────────────
 
@@ -709,4 +765,4 @@ def change_password():
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True, port=5001)
+    app.run(host='0.0.0.0', port=5001, debug=False)

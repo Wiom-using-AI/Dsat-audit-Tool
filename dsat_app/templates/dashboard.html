@@ -5,7 +5,11 @@
 <div class="page-header">
   <div>
     <div class="page-title">Quality Dashboard</div>
-    <div class="page-subtitle">DSAT Audit Overview — Wiom Quality Team</div>
+    <div class="page-subtitle">DSAT Audit Overview — Wiom Quality Team
+      {% if filters.values() | select | list %}
+      <span class="badge b-orange" style="margin-left:8px;">Filters applied</span>
+      {% endif %}
+    </div>
   </div>
   <div class="header-actions">
     <a href="{{ url_for('new_audit') }}" class="btn btn-primary">+ New Audit</a>
@@ -13,7 +17,63 @@
   </div>
 </div>
 
-<!-- Stats -->
+<!-- ── FILTER BAR ── -->
+<form method="GET" action="{{ url_for('dashboard') }}" class="filter-bar" style="flex-wrap:wrap;gap:12px;margin-bottom:22px;">
+  <div class="form-group" style="min-width:140px;flex:1;">
+    <label>Call Date From</label>
+    <input type="date" name="call_from" class="form-control" value="{{ filters.call_from }}">
+  </div>
+  <div class="form-group" style="min-width:140px;flex:1;">
+    <label>Call Date To</label>
+    <input type="date" name="call_to" class="form-control" value="{{ filters.call_to }}">
+  </div>
+  <div class="form-group" style="min-width:140px;flex:1;">
+    <label>Audit Date From</label>
+    <input type="date" name="audit_from" class="form-control" value="{{ filters.audit_from }}">
+  </div>
+  <div class="form-group" style="min-width:140px;flex:1;">
+    <label>Audit Date To</label>
+    <input type="date" name="audit_to" class="form-control" value="{{ filters.audit_to }}">
+  </div>
+  <div class="form-group" style="min-width:130px;flex:1;">
+    <label>Campaign</label>
+    <select name="campaign" class="form-control">
+      <option value="">All Campaigns</option>
+      {% for c in campaign_list %}
+      <option {% if filters.campaign == c.label %}selected{% endif %}>{{ c.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-group" style="min-width:120px;flex:1;">
+    <label>Partner</label>
+    <select name="partner" class="form-control">
+      <option value="">All Partners</option>
+      {% for p in partner_list %}
+      <option {% if filters.partner == p.label %}selected{% endif %}>{{ p.label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% if session.role == 'admin' %}
+  <div class="form-group" style="min-width:130px;flex:1;">
+    <label>Auditor</label>
+    <select name="auditor" class="form-control">
+      <option value="">All Auditors</option>
+      {% for a in auditor_list %}
+      <option {% if filters.auditor == a.name %}selected{% endif %}>{{ a.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+  <div class="form-group" style="min-width:auto;flex:none;">
+    <label>&nbsp;</label>
+    <div style="display:flex;gap:8px;">
+      <button type="submit" class="btn btn-primary">Apply</button>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline">Clear</a>
+    </div>
+  </div>
+</form>
+
+<!-- ── STATS ── -->
 <div class="stats-grid">
   <div class="stat-card">
     <div class="stat-icon si-blue">📋</div>
@@ -33,46 +93,52 @@
   </div>
 </div>
 
-<!-- Charts Row 1 -->
+<!-- ── CHARTS ROW 1 ── -->
 <div class="dash-grid">
   <div class="chart-box">
     <div class="chart-title">Top DSAT Reasons</div>
-    <canvas id="reasonChart" height="220"></canvas>
+    <canvas id="chartReason" height="220"></canvas>
   </div>
   <div class="chart-box">
     <div class="chart-title">ACPT Breakdown</div>
-    <canvas id="acptChart" height="220"></canvas>
+    <canvas id="chartAcpt" height="220"></canvas>
   </div>
 </div>
 
-<!-- Charts Row 2 -->
+<!-- ── CHARTS ROW 2 ── -->
 <div class="dash-grid three">
   <div class="chart-box">
     <div class="chart-title">Issue Type Distribution</div>
-    <canvas id="issueChart" height="220"></canvas>
+    <canvas id="chartIssue" height="220"></canvas>
   </div>
   <div class="chart-box">
     <div class="chart-title">Disposed Correctly</div>
-    <canvas id="disposedChart" height="220"></canvas>
+    <canvas id="chartDisposed" height="220"></canvas>
   </div>
   <div class="chart-box">
     <div class="chart-title">Audits by Auditor</div>
-    <canvas id="auditorChart" height="220"></canvas>
+    <canvas id="chartAuditor" height="220"></canvas>
   </div>
 </div>
 
-<!-- Monthly Trend -->
-<div class="card">
-  <div class="chart-title">Monthly Audit Trend</div>
-  <canvas id="trendChart" height="80"></canvas>
+<!-- ── CHARTS ROW 3 ── -->
+<div class="dash-grid">
+  <div class="chart-box">
+    <div class="chart-title">Monthly Audit Trend</div>
+    <canvas id="chartTrend" height="120"></canvas>
+  </div>
+  <div class="chart-box">
+    <div class="chart-title">Audits by Partner</div>
+    <canvas id="chartPartner" height="120"></canvas>
+  </div>
 </div>
 
-<!-- Recent Audits -->
+<!-- ── RECENT AUDITS ── -->
 <div class="card">
   <div class="card-header">
     <div>
       <div class="card-title">Recent Audits</div>
-      <div class="card-subtitle">Last 10 submitted</div>
+      <div class="card-sub">Last 10 matching current filters</div>
     </div>
     <a href="{{ url_for('all_audits') }}" class="btn btn-outline btn-sm">View All</a>
   </div>
@@ -80,14 +146,16 @@
     {% if recent %}
     <table>
       <thead>
-        <tr><th>Advisor</th><th>Partner</th><th>Call Date</th><th>Issue Type</th><th>ACPT</th><th>DSAT Reason</th><th>Auditor</th></tr>
+        <tr><th>Advisor</th><th>Partner</th><th>Campaign</th><th>Call Date</th><th>Audit Date</th><th>Issue Type</th><th>ACPT</th><th>DSAT Reason</th><th>Auditor</th></tr>
       </thead>
       <tbody>
         {% for a in recent %}
         <tr>
           <td><strong>{{ a.advisor_name or '—' }}</strong></td>
           <td>{{ a.partner or '—' }}</td>
+          <td>{{ a.campaign or '—' }}</td>
           <td>{{ a.call_date or '—' }}</td>
+          <td>{{ a.audit_date or '—' }}</td>
           <td>{% if a.issue_type %}<span class="badge b-blue">{{ a.issue_type }}</span>{% else %}—{% endif %}</td>
           <td>{% if a.acpt %}<span class="badge b-purple">{{ a.acpt }}</span>{% else %}—{% endif %}</td>
           <td class="truncate" title="{{ a.dsat_reason }}">{{ a.dsat_reason or '—' }}</td>
@@ -99,8 +167,8 @@
     {% else %}
     <div class="empty-state">
       <div class="empty-icon">📋</div>
-      <p>No audits yet. Start by creating a new audit.</p>
-      <a href="{{ url_for('new_audit') }}" class="btn btn-primary">+ New Audit</a>
+      <p>No audits match the current filters.</p>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline btn-sm">Clear Filters</a>
     </div>
     {% endif %}
   </div>
@@ -111,62 +179,49 @@
 <script>
 const C = ['#1a56db','#7c3aed','#db2777','#0891b2','#059669','#d97706','#dc2626','#0d9488','#4f46e5','#65a30d','#ea580c','#2563eb'];
 
-function chart(id, type, labels, data) {
+function mkChart(id, type, labels, data) {
   const el = document.getElementById(id);
-  if (!el) return;
+  if (!el || !labels.length) return;
   new Chart(el, {
     type,
-    data: {
-      labels,
-      datasets: [{
-        data,
-        backgroundColor: C,
-        borderColor: type==='line' ? '#1a56db' : C,
-        borderWidth: type==='line' ? 2 : 1,
-        fill: type==='line' ? true : false,
-        tension: 0.4,
-        pointBackgroundColor: '#1a56db',
-      }]
-    },
+    data: { labels, datasets: [{ data, backgroundColor: C, borderColor: type==='line'?'#1a56db':C, borderWidth:1, tension:.4, fill: type==='line', pointBackgroundColor:'#1a56db' }] },
     options: {
-      responsive: true,
-      plugins: {
-        legend: {
-          display: type==='doughnut'||type==='pie',
-          position: 'right',
-          labels: { font: { size: 11 }, boxWidth: 12 }
-        }
-      },
+      responsive:true,
+      plugins:{ legend:{ display: type==='doughnut'||type==='pie', position:'right', labels:{ font:{size:11}, boxWidth:12 } } },
       scales: (type!=='doughnut'&&type!=='pie') ? {
-        y: { beginAtZero:true, ticks:{ stepSize:1, font:{size:11} }, grid:{color:'#f3f4f6'} },
-        x: { ticks:{ font:{size:10} }, grid:{display:false} }
+        y:{ beginAtZero:true, ticks:{stepSize:1,font:{size:11}}, grid:{color:'#f3f4f6'} },
+        x:{ ticks:{font:{size:10},maxRotation:35}, grid:{display:false} }
       } : {}
     }
   });
 }
 
-chart('reasonChart','bar',
+mkChart('chartReason', 'bar',
   {{ reason_data|map(attribute='dsat_reason')|list|tojson }},
   {{ reason_data|map(attribute='cnt')|list|tojson }});
 
-chart('acptChart','doughnut',
+mkChart('chartAcpt', 'doughnut',
   {{ acpt_data|map(attribute='acpt')|list|tojson }},
   {{ acpt_data|map(attribute='cnt')|list|tojson }});
 
-chart('issueChart','bar',
+mkChart('chartIssue', 'bar',
   {{ issue_data|map(attribute='issue_type')|list|tojson }},
   {{ issue_data|map(attribute='cnt')|list|tojson }});
 
-chart('disposedChart','doughnut',
+mkChart('chartDisposed', 'doughnut',
   {{ disposed_data|map(attribute='disposed_correctly')|list|tojson }},
   {{ disposed_data|map(attribute='cnt')|list|tojson }});
 
-chart('auditorChart','bar',
+mkChart('chartAuditor', 'bar',
   {{ auditor_data|map(attribute='name')|list|tojson }},
   {{ auditor_data|map(attribute='cnt')|list|tojson }});
 
+mkChart('chartPartner', 'doughnut',
+  {{ partner_data|map(attribute='partner')|list|tojson }},
+  {{ partner_data|map(attribute='cnt')|list|tojson }});
+
 const tL = {{ trend_data|map(attribute='month')|list|tojson }}.reverse();
 const tD = {{ trend_data|map(attribute='cnt')|list|tojson }}.reverse();
-chart('trendChart','line', tL, tD);
+mkChart('chartTrend', 'line', tL, tD);
 </script>
 {% endblock %}
