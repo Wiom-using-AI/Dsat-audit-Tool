@@ -501,6 +501,43 @@ function getData(key, def) {
 function setData(key, val) { localStorage.setItem('dsat_'+key, JSON.stringify(val)); }
 
 function initDefaults() {
+  // Migrate existing users — add username field if missing
+  const existing = getData('users', null);
+  if (existing) {
+    let changed = false;
+    existing.forEach(u => {
+      if (!u.username) {
+        u.username = (u.email ? u.email.split('@')[0] : u.name.toLowerCase().replace(/\s/g,''));
+        changed = true;
+      }
+    });
+    if (changed) setData('users', existing);
+  }
+
+  // Always ensure all 12 auditors + admin exist with correct credentials
+  const allUsers = getData('users', []);
+  const required = [
+    { id:1,  name:'Admin',     username:'admin',     password:'admin123', role:'admin',   active:true },
+    { id:2,  name:'Sanjana',   username:'sanjana',   password:'Wiom@123', role:'auditor', active:true },
+    { id:3,  name:'Rehmat',    username:'rehmat',    password:'Wiom@123', role:'auditor', active:true },
+    { id:4,  name:'Rohan',     username:'rohan',     password:'Wiom@123', role:'auditor', active:true },
+    { id:5,  name:'Avakash',   username:'avakash',   password:'Wiom@123', role:'auditor', active:true },
+    { id:6,  name:'Deepakshi', username:'deepakshi', password:'Wiom@123', role:'auditor', active:true },
+    { id:7,  name:'Rashi',     username:'rashi',     password:'Wiom@123', role:'auditor', active:true },
+    { id:8,  name:'Sajal',     username:'sajal',     password:'Wiom@123', role:'auditor', active:true },
+    { id:9,  name:'Ankita',    username:'ankita',    password:'Wiom@123', role:'auditor', active:true },
+    { id:10, name:'Anita',     username:'anita',     password:'Wiom@123', role:'auditor', active:true },
+    { id:11, name:'Nisha',     username:'nisha',     password:'Wiom@123', role:'auditor', active:true },
+    { id:12, name:'Vikas',     username:'vikas',     password:'Wiom@123', role:'auditor', active:true },
+    { id:13, name:'Lalit',     username:'lalit',     password:'Wiom@123', role:'auditor', active:true },
+  ];
+  let needsSave = false;
+  required.forEach(req => {
+    const found = allUsers.find(u => u.username === req.username);
+    if (!found) { allUsers.push(req); needsSave = true; }
+  });
+  if (needsSave || !existing) setData('users', allUsers);
+
   if (!getData('users', null)) {
     setData('users', [
       { id:1,  name:'Admin',     username:'admin',     password:'admin123', role:'admin',   active:true },
