@@ -223,6 +223,7 @@ tbody tr:hover td{background:#f8fbff}
         <button class="nav-item" onclick="showPage('adminAcpt')"><span class="ni">⭐</span> ACPT Options</button>
         <button class="nav-item" onclick="showPage('adminPartners')"><span class="ni">🤝</span> Partners</button>
         <button class="nav-item" onclick="showPage('adminCampaigns')"><span class="ni">📣</span> Campaigns</button>
+        <button class="nav-item" onclick="showPage('settings')"><span class="ni">⚙️</span> Settings</button>
       </div>
     </nav>
     <div class="sb-footer">
@@ -403,6 +404,45 @@ tbody tr:hover td{background:#f8fbff}
       <div id="pageAdminCampaigns" class="hidden">
         <div class="page-header"><div><div class="page-title">Manage Campaigns</div><div class="page-subtitle">Campaign dropdown options in the audit form</div></div><button class="btn btn-primary" onclick="openModal('modalAddCampaign')">+ Add</button></div>
         <div class="card" style="padding:0;"><div class="table-wrap"><table><thead><tr><th>#</th><th>Campaign Name</th><th>Action</th></tr></thead><tbody id="campaignsBody"></tbody></table></div></div>
+      </div>
+
+      <!-- SETTINGS (admin only) -->
+      <div id="pageSettings" class="hidden">
+        <div class="page-header">
+          <div><div class="page-title">Settings</div><div class="page-subtitle">Connect Google Sheets to see all QA audits in one place</div></div>
+        </div>
+        <div class="card">
+          <div class="section-label">Google Sheets Connection</div>
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px 20px;margin-bottom:20px;font-size:13px;color:#1e40af;line-height:1.8;">
+            <strong>How to connect (one-time setup):</strong><br>
+            1. Go to <strong>sheets.google.com</strong> → create a new blank sheet named <em>"DSAT Audit Data"</em><br>
+            2. Click <strong>Extensions → Apps Script</strong> → delete all code<br>
+            3. Paste the script from the file <strong>google_apps_script.js</strong> (in your Dsat Tool folder)<br>
+            4. Click <strong>Deploy → New deployment → Web app</strong><br>
+            5. Set <em>"Execute as: Me"</em> and <em>"Who has access: Anyone"</em> → Deploy<br>
+            6. Copy the web app URL and paste it below
+          </div>
+          <div class="form-group">
+            <label>Google Apps Script Web App URL</label>
+            <input type="text" id="scriptUrlInput" class="form-control" placeholder="https://script.google.com/macros/s/...">
+            <div class="form-hint">Paste the URL from Step 6 above. Once saved, all QA audits will automatically go to your Google Sheet.</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:4px;">
+            <button class="btn btn-primary" onclick="saveScriptUrl()">Save & Connect</button>
+            <button class="btn btn-outline" onclick="testConnection()">Test Connection</button>
+            <span id="connectionStatus" style="font-size:13px;"></span>
+          </div>
+        </div>
+        <div class="card" id="sheetsAuditsCard" style="padding:0;display:none;">
+          <div class="card-header" style="padding:16px 20px;">
+            <div><div class="card-title">All QA Audits — Live from Google Sheets</div><div class="card-sub" id="sheetsAuditCount"></div></div>
+            <button class="btn btn-outline btn-sm" onclick="loadSheetsAudits()">Refresh</button>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>#</th><th>Advisor</th><th>Partner</th><th>Calling No.</th><th>Campaign</th><th>Call Date</th><th>Audit Date</th><th>Issue Type</th><th>Sub Issue</th><th>Disposed?</th><th>ACPT</th><th>DSAT Reason</th><th>Auditor</th><th></th></tr></thead>
+            <tbody id="sheetsAuditsBody"></tbody></table>
+          </div>
+        </div>
       </div>
 
       <!-- CHANGE PASSWORD -->
@@ -725,8 +765,8 @@ function changePassword() {
 // ═══════════════════════════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════════════════════════
-const pageTitles = {dashboard:'Dashboard',auditForm:'New Audit',allAudits:'All Audits',viewDsatReasons:'DSAT Reasons',adminUsers:'Manage Users',adminDispositions:'Manage Dispositions',adminDsatReasons:'DSAT Reasons (Admin)',adminAcpt:'ACPT Options',adminPartners:'Partners',adminCampaigns:'Campaigns',changePw:'Change Password'};
-const pageIds = ['dashboard','auditForm','allAudits','viewDsatReasons','adminUsers','adminDispositions','adminDsatReasons','adminAcpt','adminPartners','adminCampaigns','changePw'];
+const pageTitles = {dashboard:'Dashboard',auditForm:'New Audit',allAudits:'All Audits',viewDsatReasons:'DSAT Reasons',adminUsers:'Manage Users',adminDispositions:'Manage Dispositions',adminDsatReasons:'DSAT Reasons (Admin)',adminAcpt:'ACPT Options',adminPartners:'Partners',adminCampaigns:'Campaigns',settings:'Settings',changePw:'Change Password'};
+const pageIds = ['dashboard','auditForm','allAudits','viewDsatReasons','adminUsers','adminDispositions','adminDsatReasons','adminAcpt','adminPartners','adminCampaigns','settings','changePw'];
 
 function showPage(name) {
   pageIds.forEach(p => document.getElementById('page'+p.charAt(0).toUpperCase()+p.slice(1)).classList.add('hidden'));
@@ -741,6 +781,7 @@ function showPage(name) {
   if (name==='auditForm') initAuditForm();
   if (name==='viewDsatReasons') renderViewDsatReasons();
   if (name==='adminUsers') renderUsersTable();
+  if (name==='settings') renderSettings();
   if (name==='adminDispositions') renderDispositionsTable();
   if (name==='adminDsatReasons') renderDsatReasonsTable();
   if (name==='adminAcpt') renderAcptTable();
@@ -844,6 +885,35 @@ function showDsatInfo() {
   } else { box.classList.remove('show'); }
 }
 
+// ── Google Sheets integration ──────────────────────────────
+function getScriptUrl() { return localStorage.getItem('dsat_script_url') || ''; }
+
+function postToSheets(audit) {
+  const url = getScriptUrl();
+  if (!url) return;
+  fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({action: 'saveAudit', ...audit})
+  }).catch(() => {});
+}
+
+function fetchAllAuditsFromSheets() {
+  const url = getScriptUrl();
+  if (!url) return Promise.resolve(null);
+  return fetch(url + '?action=getAudits')
+    .then(r => r.json())
+    .catch(() => null);
+}
+
+function fetchMyAuditsFromSheets(auditorName) {
+  const url = getScriptUrl();
+  if (!url) return Promise.resolve(null);
+  return fetch(url + '?action=getAudits&auditor=' + encodeURIComponent(auditorName))
+    .then(r => r.json())
+    .catch(() => null);
+}
+// ───────────────────────────────────────────────────────────
+
 function submitAudit(e) {
   e.preventDefault();
   const id = document.getElementById('editAuditId').value;
@@ -877,6 +947,7 @@ function submitAudit(e) {
     audits.unshift(audit);
   }
   setData('audits', audits);
+  postToSheets(audit); // save to Google Sheets
   flash('success', id ? 'Audit updated.' : 'Audit submitted successfully!');
   showPage('allAudits');
 }
@@ -891,6 +962,24 @@ function getVisibleAudits() {
 }
 
 function renderAuditsTable() {
+  // Admin: fetch from Google Sheets if configured
+  if (currentUser && currentUser.role === 'admin' && getScriptUrl()) {
+    document.getElementById('auditsBody').innerHTML = '<tr><td colspan="14" style="text-align:center;padding:32px;color:#64748b;">Loading all audits from Google Sheets...</td></tr>';
+    document.getElementById('auditsEmpty').classList.add('hidden');
+    fetchAllAuditsFromSheets().then(sheetsData => {
+      if (sheetsData && Array.isArray(sheetsData)) {
+        renderAuditsRows(sheetsData);
+        document.getElementById('auditCount').textContent = sheetsData.length;
+      } else {
+        renderAuditsLocal();
+      }
+    });
+    return;
+  }
+  renderAuditsLocal();
+}
+
+function renderAuditsLocal() {
   let audits = getVisibleAudits();
   const fa = document.getElementById('filterAdvisor').value.toLowerCase();
   const fi = document.getElementById('filterIssue').value;
@@ -962,6 +1051,63 @@ function renderAuditsTable() {
       </td>
     </tr>
   `).join('');
+}
+
+function auditRowHTML(a, i) {
+  return `
+    <tr>
+      <td class="text-muted text-sm">${i+1}</td>
+      <td><strong>${a.advisorName||'—'}</strong></td>
+      <td>${a.partner||'—'}</td>
+      <td>${a.callingNo||'—'}</td>
+      <td>${a.campaign||'—'}</td>
+      <td>${a.callDate||'—'}</td>
+      <td>${a.auditDate||'—'}</td>
+      <td>${a.issueType?`<span class="badge b-blue">${a.issueType}</span>`:'—'}</td>
+      <td class="truncate" title="${a.subIssue||''}">${a.subIssue||'—'}</td>
+      <td>${a.disposed==='Yes'?'<span class="badge b-green">Yes</span>':a.disposed==='No'?'<span class="badge b-red">No</span>':'—'}</td>
+      <td>${a.acpt?`<span class="badge b-purple">${a.acpt}</span>`:'—'}</td>
+      <td class="truncate" title="${a.dsatReason||''}">${a.dsatReason||'—'}</td>
+      <td>${a.auditorName||'—'}</td>
+      <td><button class="btn btn-outline btn-sm" onclick='viewAuditDetail(${JSON.stringify(a).replace(/'/g,"&#39;")})'>View</button></td>
+    </tr>
+    <tr style="background:#f8fbff;">
+      <td colspan="14" style="padding:0 13px 10px;">
+        ${(a.callSummary||a.areasImprovement||a.actionable||a.reasonAcpt)?`
+        <details style="font-size:12px;">
+          <summary style="cursor:pointer;color:#1a56db;font-weight:600;padding:5px 0;">▸ View Details</summary>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:10px;">
+            ${a.callSummary?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Call Summary</div><div style="color:#64748b;line-height:1.55;">${a.callSummary}</div></div>`:''}
+            ${a.areasImprovement?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Areas of Improvement</div><div style="color:#64748b;line-height:1.55;">${a.areasImprovement}</div></div>`:''}
+            ${a.reasonAcpt?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Reason for ACPT</div><div style="color:#64748b;line-height:1.55;">${a.reasonAcpt}</div></div>`:''}
+            ${a.actionable?`<div><div style="font-weight:700;font-size:11px;text-transform:uppercase;color:#374151;margin-bottom:3px;">Actionable Items</div><div style="color:#64748b;line-height:1.55;">${a.actionable}</div></div>`:''}
+          </div>
+        </details>`:''}
+      </td>
+    </tr>`;
+}
+
+function renderAuditsRows(audits) {
+  const body = document.getElementById('auditsBody');
+  const empty = document.getElementById('auditsEmpty');
+  if (!audits.length) { body.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  body.innerHTML = audits.map((a,i) => auditRowHTML(a,i)).join('');
+}
+
+function viewAuditDetail(a) { /* used for sheets data — no edit needed */ }
+
+function exportSheetsCSV(audits) {
+  const headers = ['Advisor Name','Partner','Calling Number','Auditor Name','Call Date','Audit Date',
+    'Campaign','Issue Type','Sub Issue','Disposed','ACPT','DSAT Reason','Actionable'];
+  const rows = audits.map(a=>[a.advisorName,a.partner,a.callingNo,a.auditorName,a.callDate,
+    a.auditDate,a.campaign,a.issueType,a.subIssue,a.disposed,a.acpt,a.dsatReason,a.actionable]
+    .map(v=>`"${(v||'').replace(/"/g,'""')}"`));
+  const csv = '﻿'+[headers,...rows].map(r=>r.join(',')).join('\n');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  link.download = `dsat_all_audits_${new Date().toISOString().split('T')[0]}.csv`;
+  link.click();
 }
 
 function editAudit(id) {
@@ -1295,6 +1441,65 @@ function deleteFromList(key, val, renderFn) {
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }));
+
+// ═══════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════
+function renderSettings() {
+  const url = getScriptUrl();
+  const input = document.getElementById('scriptUrlInput');
+  if (input) input.value = url;
+  if (url) loadSheetsAudits();
+}
+
+function saveScriptUrl() {
+  const url = document.getElementById('scriptUrlInput').value.trim();
+  if (!url) { flash('error','Please paste the Apps Script URL.'); return; }
+  localStorage.setItem('dsat_script_url', url);
+  flash('success','Connected! Testing connection...');
+  testConnection();
+}
+
+function testConnection() {
+  const url = getScriptUrl();
+  if (!url) { flash('error','No URL saved yet.'); return; }
+  const status = document.getElementById('connectionStatus');
+  status.innerHTML = '<span style="color:#64748b;">Testing...</span>';
+  fetch(url + '?action=getAudits')
+    .then(r => r.json())
+    .then(data => {
+      if (Array.isArray(data)) {
+        status.innerHTML = '<span style="color:#059669;">✅ Connected! ' + data.length + ' audits in sheet.</span>';
+        loadSheetsAudits();
+      } else {
+        status.innerHTML = '<span style="color:#dc2626;">❌ Connection failed. Check the URL.</span>';
+      }
+    })
+    .catch(() => {
+      status.innerHTML = '<span style="color:#dc2626;">❌ Could not reach the script. Check URL and permissions.</span>';
+    });
+}
+
+function loadSheetsAudits() {
+  const card = document.getElementById('sheetsAuditsCard');
+  const tbody = document.getElementById('sheetsAuditsBody');
+  const countEl = document.getElementById('sheetsAuditCount');
+  if (!card || !tbody) return;
+  card.style.display = 'block';
+  tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:24px;color:#64748b;">Loading...</td></tr>';
+  fetchAllAuditsFromSheets().then(data => {
+    if (!data || !Array.isArray(data)) {
+      tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:24px;color:#dc2626;">Failed to load. Check connection.</td></tr>';
+      return;
+    }
+    countEl.textContent = data.length + ' total audits across all QAs';
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;padding:24px;color:#64748b;">No audits yet. QAs will appear here once they submit audits.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map((a, i) => auditRowHTML(a, i)).join('');
+  });
+}
 
 // ═══════════════════════════════════════════════════════════
 // INIT
