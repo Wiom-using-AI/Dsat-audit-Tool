@@ -205,6 +205,19 @@ def init_db():
         db_execute("INSERT INTO users (username, name, password, role) VALUES (?,?,?,?)",
                    ('admin', 'Admin', hash_pw('admin123'), 'admin'), commit=True)
 
+    # Seed auditors
+    auditors = [
+        ('sanjana','Sanjana'),('rehmat','Rehmat'),('rohan','Rohan'),
+        ('avakash','Avakash'),('deepakshi','Deepakshi'),('rashi','Rashi'),
+        ('sajal','Sajal'),('ankita','Ankita'),('anita','Anita'),
+        ('nisha','Nisha'),('vikas','Vikas'),('lalit','Lalit'),
+    ]
+    for uname, name in auditors:
+        ex = db_execute("SELECT id FROM users WHERE username=?", (uname,), fetchone=True)
+        if not ex:
+            db_execute("INSERT INTO users (username, name, password, role) VALUES (?,?,?,?)",
+                       (uname, name, hash_pw('Wiom@123'), 'auditor'), commit=True)
+
     # Seed dispositions
     cnt = db_execute("SELECT COUNT(*) as c FROM dispositions", fetchone=True)
     if (cnt or {}).get('c', cnt.get('COUNT(*)') if cnt else 0) == 0 if cnt else True:

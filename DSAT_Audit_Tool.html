@@ -170,8 +170,8 @@ tbody tr:hover td{background:#f8fbff}
     </div>
     <div id="loginFlash"></div>
     <div class="form-group">
-      <label>Email Address</label>
-      <input type="email" id="loginEmail" class="form-control" placeholder="you@wiom.in" autofocus>
+      <label>Username</label>
+      <input type="text" id="loginEmail" class="form-control" placeholder="Enter your username" autofocus autocomplete="username">
     </div>
     <div class="form-group">
       <label>Password</label>
@@ -502,7 +502,21 @@ function setData(key, val) { localStorage.setItem('dsat_'+key, JSON.stringify(va
 
 function initDefaults() {
   if (!getData('users', null)) {
-    setData('users', [{ id:1, name:'Admin', email:'admin@wiom.in', password:'admin123', role:'admin', active:true }]);
+    setData('users', [
+      { id:1,  name:'Admin',     username:'admin',     password:'admin123', role:'admin',   active:true },
+      { id:2,  name:'Sanjana',   username:'sanjana',   password:'Wiom@123', role:'auditor', active:true },
+      { id:3,  name:'Rehmat',    username:'rehmat',    password:'Wiom@123', role:'auditor', active:true },
+      { id:4,  name:'Rohan',     username:'rohan',     password:'Wiom@123', role:'auditor', active:true },
+      { id:5,  name:'Avakash',   username:'avakash',   password:'Wiom@123', role:'auditor', active:true },
+      { id:6,  name:'Deepakshi', username:'deepakshi', password:'Wiom@123', role:'auditor', active:true },
+      { id:7,  name:'Rashi',     username:'rashi',     password:'Wiom@123', role:'auditor', active:true },
+      { id:8,  name:'Sajal',     username:'sajal',     password:'Wiom@123', role:'auditor', active:true },
+      { id:9,  name:'Ankita',    username:'ankita',    password:'Wiom@123', role:'auditor', active:true },
+      { id:10, name:'Anita',     username:'anita',     password:'Wiom@123', role:'auditor', active:true },
+      { id:11, name:'Nisha',     username:'nisha',     password:'Wiom@123', role:'auditor', active:true },
+      { id:12, name:'Vikas',     username:'vikas',     password:'Wiom@123', role:'auditor', active:true },
+      { id:13, name:'Lalit',     username:'lalit',     password:'Wiom@123', role:'auditor', active:true },
+    ]);
   }
   if (!getData('dispositions', null)) {
     setData('dispositions', [
@@ -631,10 +645,10 @@ function generateSetupCode() {
 }
 
 function doLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
   const pw = document.getElementById('loginPw').value;
   const users = getData('users', []);
-  const user = users.find(u => u.email === email && u.password === pw && u.active);
+  const user = users.find(u => (u.username === email || u.email === email) && u.password === pw && u.active);
   if (!user) { document.getElementById('loginFlash').innerHTML = '<div class="flash flash-error">Invalid credentials.<button onclick="this.parentElement.remove()">✕</button></div>'; return; }
   currentUser = user;
   document.getElementById('loginPage').classList.add('hidden');
