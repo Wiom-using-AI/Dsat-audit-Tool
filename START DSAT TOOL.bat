@@ -23,9 +23,10 @@ timeout /t 5 /nobreak >nul
 :: Start Cloudflare tunnel
 set LOGFILE=C:\Users\Preeti Naval\OneDrive\Desktop\Dsat Tool\tunnel.log
 if exist "%LOGFILE%" del /Q "%LOGFILE%"
-start /B "C:\Users\Preeti Naval\OneDrive\Desktop\Dsat Tool\cloudflared.exe" tunnel --url http://localhost:5001 2>"%LOGFILE%"
+echo. > "%LOGFILE%"
+start "" /B cmd /c ""C:\Users\Preeti Naval\OneDrive\Desktop\Dsat Tool\cloudflared.exe" tunnel --url http://localhost:5001 >> "%LOGFILE%" 2>&1"
 echo  [2/3] Creating public link...
-timeout /t 15 /nobreak >nul
+timeout /t 20 /nobreak >nul
 
 :: Extract the tunnel URL from log
 set TUNNEL_URL=
