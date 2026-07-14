@@ -33,12 +33,13 @@ function Start-Tunnel {
 }
 
 function Get-TunnelUrl {
-    $deadline = (Get-Date).AddSeconds(35)
+    $deadline = (Get-Date).AddSeconds(40)
     while ((Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 3
         if (Test-Path $logFile) {
             try {
-                $content = [System.IO.File]::ReadAllText($logFile)
+                # Use Get-Content which works even when file is locked by cloudflared
+                $content = Get-Content $logFile -Raw -ErrorAction SilentlyContinue
                 $m = [regex]::Matches($content, 'https://[a-z0-9-]+\.trycloudflare\.com')
                 if ($m.Count -gt 0) { return $m[$m.Count-1].Value }
             } catch {}
